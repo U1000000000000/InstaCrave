@@ -1,0 +1,20 @@
+const mongoose = require('mongoose');
+
+
+const followSchema = new mongoose.Schema({
+    user: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'user',
+        required: true
+    },
+    foodpartner: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'foodpartner',
+        required: true
+    }
+}, {
+    timestamps: true
+})
+
+const follow = mongoose.model('follow', followSchema);
+module.exports = follow;
