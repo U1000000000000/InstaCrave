@@ -1,0 +1,345 @@
+/* ==========================================================================
+   Profile Edit Styles
+   Reusable styles for editable profile fields
+   ========================================================================== */
+
+/* Profile Info Cards */
+.profile-info-card {
+  background: var(--color-surface);
+  border-radius: 12px;
+  padding: 18px 18px 10px;
+  margin-bottom: 0;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--color-border);
+}
+
+.profile-info-card-flex {
+  min-height: 74px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.profile-info-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.profile-info-label {
+  font-weight: 600;
+  font-size: 1.13rem;
+}
+
+.profile-info-value {
+  color: var(--color-text-secondary);
+  font-size: 1.08rem;
+}
+
+/* Edit Menu */
+.profile-menu-wrapper {
+  position: relative;
+}
+
+.profile-menu-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 6px;
+}
+
+.profile-menu-icon {
+  font-size: 1.5rem;
+  color: var(--color-text);
+  font-weight: 700;
+  line-height: 1;
+}
+
+.profile-menu-dropdown {
+  position: absolute;
+  right: 0;
+  top: 110%;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.13);
+  z-index: 10;
+  min-width: 90px;
+}
+
+.profile-menu-item {
+  padding: 8px 18px;
+  cursor: pointer;
+  color: var(--color-text);
+  font-weight: 600;
+  transition: background 0.2s;
+}
+
+.profile-menu-item:hover {
+  background: var(--color-surface-alt);
+}
+
+/* Edit Mode */
+.profile-edit-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.profile-edit-input {
+  font-size: 1.08rem;
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: 2px solid var(--color-accent);
+  background: var(--color-surface);
+  color: var(--color-text);
+  outline: none;
+  font-weight: 500;
+  box-shadow: 0 2px 8px 0 rgba(226, 55, 71, 0.08);
+  width: 100%;
+  transition: border 0.2s, box-shadow 0.2s;
+}
+
+.profile-edit-input:focus {
+  box-shadow: 0 4px 12px 0 rgba(226, 55, 71, 0.12);
+}
+
+.profile-edit-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 2px;
+  justify-content: flex-end;
+}
+
+.profile-edit-save {
+  color: #fff;
+  background: var(--color-accent);
+  border: none;
+  border-radius: 4px;
+  padding: 6px 18px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.profile-edit-save:hover:not(:disabled) {
+  background: var(--color-accent-hover);
+}
+
+.profile-edit-save:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.profile-edit-cancel {
+  color: var(--color-accent);
+  background: none;
+  border: none;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 6px 12px;
+  transition: opacity 0.2s;
+}
+
+.profile-edit-cancel:hover {
+  opacity: 0.8;
+}
+
+/* Profile Tabs */
+.profile-tabs-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+  margin: 18px 0 0 0;
+  width: 100%;
+  position: relative;
+  min-height: 40px;
+}
+
+.profile-tab-button {
+  background: none;
+  border: none;
+  font-size: 1.13rem;
+  position: relative;
+  padding: 8px 0;
+  cursor: pointer;
+  border-radius: 6px 6px 0 0;
+  outline: none;
+  transition: all 0.18s;
+  min-width: 120px;
+}
+
+.profile-tab-button span {
+  display: inline-block;
+  padding: 0 8px;
+}
+
+.profile-tab-button:not(.active) {
+  color: var(--color-text-secondary);
+  font-weight: 600;
+}
+
+.profile-tab-button.active {
+  color: var(--color-accent);
+  font-weight: 700;
+}
+
+.profile-tab-divider {
+  width: 1px;
+  height: 28px;
+  background: var(--color-tab-divider, #bbb);
+}
+
+.profile-tab-underline {
+  position: absolute;
+  bottom: 0;
+  height: 3px;
+  background: var(--color-accent);
+  border-radius: 2px;
+  transition: left 0.18s, width 0.18s;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Tab Content */
+.profile-tab-content {
+  margin-top: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+}
+
+.profile-tab-section {
+  flex: 1 1 380px;
+  min-width: 320px;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.profile-tab-section-wide {
+  flex: 2 1 480px;
+  min-width: 340px;
+}
+
+/* Dropdown Arrow */
+.profile-dropdown-arrow {
+  color: var(--color-accent);
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin-left: 8px;
+}
+
+/* Food Items / Followers Section */
+.profile-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 18px;
+}
+
+.profile-section-title {
+  font-weight: 700;
+  font-size: 1.18rem;
+  color: var(--color-accent);
+}
+
+.profile-section-count {
+  background: var(--color-surface-alt);
+  border-radius: 6px;
+  padding: 6px 16px;
+  font-weight: 700;
+  font-size: 1.08rem;
+  color: var(--color-text);
+}
+
+.profile-section-items {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.profile-empty-message {
+  color: var(--color-text-secondary);
+  font-style: italic;
+  text-align: center;
+  width: 100%;
+}
+
+.profile-empty-link {
+  color: var(--color-accent);
+  text-decoration: underline;
+  font-style: normal;
+  font-weight: 600;
+}
+
+/* Meal Card Styles */
+.meal-card {
+  background: var(--color-surface);
+  border-radius: 12px;
+  padding: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-sm);
+  transition: all 0.2s ease;
+}
+
+.meal-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.meal-card-name {
+  font-weight: 700;
+  font-size: 1.25rem;
+  color: var(--color-text);
+}
+
+.meal-arrow {
+  font-size: 1.4rem;
+  color: var(--color-text-secondary);
+  transition: all 0.2s ease;
+}
+
+/* Follower Card Styles */
+.follower-card {
+  background: var(--color-surface);
+  border-radius: 12px;
+  padding: 16px 18px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-sm);
+}
+
+.follower-avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--color-border);
+}
+
+.follower-info {
+  flex: 1;
+}
+
+.follower-name {
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: var(--color-text);
+  margin-bottom: 2px;
+}
+
+.follower-email {
+  color: var(--color-text-secondary);
+  font-size: 0.95rem;
+}

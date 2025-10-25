@@ -1,0 +1,24 @@
+/* Dropdown styling */
+select option {
+  background-color: #1a1a1a;
+  color: #fff;
+  padding: 12px;
+  font-size: 1.1rem;
+}
+
+select option:checked {
+  background: #1a1a1a;
+  position: relative;
+}
+
+select option:checked::before {
+  content: "✓";
+  position: absolute;
+  left: 10px;
+}
+
+/* Style for the select when opened */
+select:focus {
+  outline: none;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+}

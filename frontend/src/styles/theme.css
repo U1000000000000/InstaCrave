@@ -1,0 +1,136 @@
+/* CSS Theme Variables (Light & Dark via system preference) */
+
+
+:root {
+  --color-bg: #f9fafb;
+  --color-surface: #fff;
+  --color-surface-alt: #f1f5f9;
+  --color-border: #e2e8f0;
+  --color-text: #181C1E;
+  --color-text-secondary: #475569;
+  --color-accent: #E23747;
+  --color-accent-hover: #b81c2a;
+  --color-danger: #E23747;
+
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+
+  --font-stack: system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.06);
+  --shadow-md: 0 4px 12px -2px rgba(0,0,0,.08),0 2px 4px -2px rgba(0,0,0,.06);
+
+  --transition-base: 120ms cubic-bezier(.4,0,.2,1);
+
+  /* Scrollbar colors - Light theme */
+  --scrollbar-track: #f1f5f9;
+  --scrollbar-thumb: #cbd5e1;
+  --scrollbar-thumb-hover: #94a3b8;
+}
+
+
+/* Manual theme override: dark */
+[data-theme='dark'] {
+  --color-bg: #181C1E;
+  --color-surface: #23272a;
+  --color-surface-alt: #23272a;
+  --color-border: #23272a;
+  --color-text: #fff;
+  --color-text-secondary: #e4e4e7;
+  --color-accent: #E23747;
+  --color-accent-hover: #b81c2a;
+  --color-danger: #E23747;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.5);
+  --shadow-md: 0 4px 18px -4px rgba(0,0,0,.5),0 2px 6px -2px rgba(0,0,0,.4);
+  
+  /* Scrollbar colors - Dark theme */
+  --scrollbar-track: #1a1a1a;
+  --scrollbar-thumb: #404040;
+  --scrollbar-thumb-hover: #555555;
+}
+
+/* Manual theme override: light */
+[data-theme='light'] {
+  --color-bg: #f9fafb;
+  --color-surface: #fff;
+  --color-surface-alt: #f1f5f9;
+  --color-border: #e2e8f0;
+  --color-text: #181C1E;
+  --color-text-secondary: #475569;
+  --color-accent: #E23747;
+  --color-accent-hover: #b81c2a;
+  --color-danger: #E23747;
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --font-stack: system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.06);
+  --shadow-md: 0 4px 12px -2px rgba(0,0,0,.08),0 2px 4px -2px rgba(0,0,0,.06);
+  --transition-base: 120ms cubic-bezier(.4,0,.2,1);
+  
+  /* Scrollbar colors - Light theme */
+  --scrollbar-track: #f1f5f9;
+  --scrollbar-thumb: #cbd5e1;
+  --scrollbar-thumb-hover: #94a3b8;
+}
+
+/* System theme fallback (prefers-color-scheme) */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']):not([data-theme='dark']) {
+    --color-bg: #181C1E;
+    --color-surface: #23272a;
+    --color-surface-alt: #23272a;
+    --color-border: #23272a;
+    --color-text: #fff;
+    --color-text-secondary: #e4e4e7;
+    --color-accent: #E23747;
+    --color-accent-hover: #b81c2a;
+    --color-danger: #E23747;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,.5);
+    --shadow-md: 0 4px 18px -4px rgba(0,0,0,.5),0 2px 6px -2px rgba(0,0,0,.4);
+    
+    /* Scrollbar colors - Dark theme */
+    --scrollbar-track: #1a1a1a;
+    --scrollbar-thumb: #404040;
+    --scrollbar-thumb-hover: #555555;
+  }
+}
+
+
+
+/* Base element theming (can be imported once globally) */
+
+
+body {
+  font-family: var(--font-stack);
+  background: var(--color-bg) !important;
+  color: var(--color-text) !important;
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.4;
+}
+
+a {
+  color: var(--color-accent);
+  text-decoration: none;
+  transition: color var(--transition-base);
+}
+
+::selection { background: var(--color-accent); color: #E23747; }
+
+::selection { background: var(--color-accent); color: #fff; }
