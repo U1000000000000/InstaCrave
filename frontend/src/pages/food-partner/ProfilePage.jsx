@@ -447,7 +447,6 @@ const FoodPartnerProfile = () => {
                 padding:'18px',
                 fontWeight:700,
                 fontSize:'1.13rem',
-                marginBottom:0,
                 marginTop:0,
                 boxShadow:'var(--shadow-sm)',
                 cursor:'pointer',

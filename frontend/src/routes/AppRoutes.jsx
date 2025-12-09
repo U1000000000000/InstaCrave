@@ -24,9 +24,11 @@ import UserSearch from '../pages/user/Search';
 import UserReels from '../pages/user/Reels';
 import UserProfile from '../pages/user/Profile';
 import UserChangePassword from '../pages/user/ChangePassword';
+import Orders from '../pages/user/Orders';
 import PublicFoodPartnerProfile from '../pages/food-partner/PublicProfile';
 import ReelPage from '../pages/user/ReelPage';
 import ProtectedRoute from '../components/ProtectedRoute';
+import PartnerOrders from '../pages/food-partner/PartnerOrders';
 
 const AnimatedRoutes = () => {
     const location = useLocation();
@@ -96,6 +98,13 @@ const AnimatedRoutes = () => {
                         </ProtectedRoute>
                     </PageTransition>
                 } />
+                <Route path="/user/orders" element={
+                    <PageTransition>
+                        <ProtectedRoute requiredUserType="user">
+                            <Orders /><UserBottomNav />
+                        </ProtectedRoute>
+                    </PageTransition>
+                } />
                 <Route path="/create-food" element={
                     <PageTransition>
                         <ProtectedRoute requiredUserType="food-partner">
@@ -142,6 +151,13 @@ const AnimatedRoutes = () => {
                     <PageTransition>
                         <ProtectedRoute requiredUserType="food-partner">
                             <ChangeProfilePhoto /><BottomNavFoodPartner />
+                        </ProtectedRoute>
+                    </PageTransition>
+                } />
+                <Route path="/food-partner/orders" element={
+                    <PageTransition>
+                        <ProtectedRoute requiredUserType="food-partner">
+                            <PartnerOrders /><BottomNavFoodPartner />
                         </ProtectedRoute>
                     </PageTransition>
                 } />

@@ -1,3 +1,5 @@
+@import './theme.css';
+
 /* Play icon overlay when paused */
 .reel-play-overlay {
   position: absolute;
@@ -50,7 +52,6 @@
 .reels-feed::-webkit-scrollbar {
   display: none !important; /* Chrome, Safari, Opera */
 }
-@import './theme.css';
 
 .comments-scrollable::-webkit-scrollbar {
   width: 8px;

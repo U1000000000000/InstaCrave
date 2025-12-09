@@ -365,39 +365,44 @@ const PublicFoodPartnerProfile = () => {
           marginTop: '10px',
           marginBottom: '10px'
         }}>
-          <h3 style={{
-            color:'var(--color-accent, #ff4081)',
-            fontWeight:700,
-            fontSize:'1.28rem',
-            margin:0,
-            textAlign:'center'
-          }}>Meals</h3>
-          <div className="custom-dropdown">
-            <button 
-              className="dropdown-button" 
-              onClick={() => setDropdownOpen(!dropdownOpen)}
-              type="button"
-            >
-              <FaSortAmountDown className="filter-icon" />
-              {SORT_OPTIONS.find(opt => opt.value === sortBy)?.label || 'Sort by'}
-            </button>
-            {dropdownOpen && (
-              <div className="dropdown-content">
-                {SORT_OPTIONS.map(opt => (
-                  <div
-                    key={opt.value}
-                    className={`dropdown-item ${opt.value === sortBy ? 'selected' : ''}`}
-                    onClick={() => {
-                      setSortBy(opt.value);
-                      setDropdownOpen(false);
-                    }}
-                  >
-                    {opt.label}
+            <div style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 14, paddingLeft: 4, paddingRight: 4 }}>
+              <span style={{
+                fontWeight: 700,
+                fontSize: '1.4rem',
+                color: '#E53935',
+                verticalAlign: 'middle',
+                display: 'inline-block',
+                marginRight: 6
+              }}>Meals</span>
+              <div className="custom-dropdown" style={{ display: 'flex', alignItems: 'center' }}>
+                <button 
+                  className="dropdown-button public-profile-filter"
+                  onClick={() => setDropdownOpen(!dropdownOpen)}
+                  type="button"
+                  style={{ minWidth: 0, width: 120, maxWidth: 140, padding: '8px 0', borderRadius: 8, fontWeight: 700, fontSize: '1.08rem', height: 38, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', background: '#232428', color: '#fff', border: 'none', boxShadow: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                >
+                  <FaSortAmountDown className="filter-icon" />
+                  {SORT_OPTIONS.find(opt => opt.value === sortBy)?.label || 'Sort by'}
+                </button>
+                {dropdownOpen && (
+                  <div className="dropdown-content" style={{ minWidth: 0, width: 140 }}>
+                    {SORT_OPTIONS.map(opt => (
+                      <div
+                        key={opt.value}
+                        className={`dropdown-item ${opt.value === sortBy ? 'selected' : ''}`}
+                        onClick={() => {
+                          setSortBy(opt.value);
+                          setDropdownOpen(false);
+                        }}
+                        style={{ padding: '10px 14px', fontSize: '1rem' }}
+                      >
+                        {opt.label}
+                      </div>
+                    ))}
                   </div>
-                ))}
+                )}
               </div>
-            )}
-          </div>
+            </div>
         </div>
         {sortedMeals.length === 0 ? (
           <div style={{color:'var(--color-text-secondary)'}}>No meals available.</div>

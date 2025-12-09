@@ -55,6 +55,19 @@ const UserBottomNav = () => {
             <FiUser />
           </span>
         </NavLink>
+        <NavLink 
+          to="/user/orders" 
+          className={({ isActive }) => `bottom-nav__item ${isActive ? 'is-active' : ''}`}
+          onClick={(e) => handleNavClick(e, '/user/orders')}
+        >
+          <span className="bottom-nav__icon" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="9" cy="21" r="1.5"/>
+              <circle cx="19" cy="21" r="1.5"/>
+              <path d="M2.5 4H5l2.5 13h11l2-8H7"/>
+            </svg>
+          </span>
+        </NavLink>
       </div>
     </nav>
   );

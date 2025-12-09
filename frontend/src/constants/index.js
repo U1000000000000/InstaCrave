@@ -30,6 +30,12 @@ export const API_ENDPOINTS = {
   FOOD_PARTNER: {
     FOLLOW: '/api/food-partner/follow',
   },
+  ORDERS: {
+    CREATE: '/api/orders',
+    USER_ORDERS: '/api/orders',
+    PARTNER_ORDERS: '/api/orders/partner',
+    UPDATE_STATUS: '/api/orders',
+  },
   SEARCH: {
     BASE: '/api/search',
     EXPLORE: '/api/search/explore',
