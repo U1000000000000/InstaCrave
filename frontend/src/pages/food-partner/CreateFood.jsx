@@ -7,6 +7,8 @@ import '../../styles/create-food.css';
 const CreateFood = () => {
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
+    const [isOrderable, setIsOrderable] = useState(false);
+    const [price, setPrice] = useState('');
     const [videoFile, setVideoFile] = useState(null);
     const [videoURL, setVideoURL] = useState('');
     const [fileError, setFileError] = useState('');
@@ -56,6 +58,8 @@ const CreateFood = () => {
             const formData = new FormData();
             formData.append('name', name);
             formData.append('description', description);
+            formData.append('isOrderable', isOrderable);
+            if (isOrderable) formData.append('price', price);
             formData.append('mama', videoFile);
             await axios.post(`${API_BASE_URL}/api/food`, formData, { withCredentials: true });
             navigate('/food-partner/dashboard');
@@ -64,12 +68,19 @@ const CreateFood = () => {
         }
     };
 
-    const isDisabled = useMemo(() => !name.trim() || !videoFile || loading, [name, videoFile, loading]);
+    const isDisabled = useMemo(() => !name.trim() || !videoFile || loading || (isOrderable && !price), [name, videoFile, loading, isOrderable, price]);
 
     return (
                 <main className="profile-page">
-                    <div className="create-food-header-wrapper">
-                        <h2 className="create-food-page-title">Create Food</h2>
+                    <div className="d-flex align-center justify-between gap-4 mb-4 mt-2">
+                        <h2 style={{
+                          fontWeight: 700,
+                          fontSize: '2.1rem',
+                          color: 'var(--color-text)',
+                          letterSpacing: '-1px',
+                          paddingLeft: '2px',
+                          margin: 0
+                        }}>Create Food</h2>
                     </div>
                     <hr className="profile-sep" />
                             <form onSubmit={onSubmit} className="create-food-form-container">
@@ -156,6 +167,61 @@ const CreateFood = () => {
                                                         placeholder="Write a short description: ingredients, taste, spice level, etc."
                                                     />
                                     </div>
+                                    <div className="form-input-card" style={{display:'flex',flexDirection:'column',padding:'12px 16px',background:'var(--color-surface-alt)',borderRadius:8,border:'1.5px solid var(--color-border)'}}>
+                                        <div style={{display:'flex',flexDirection:'row',alignItems:'center',justifyContent:'center',gap:18}}>
+                                            <label htmlFor="orderable-toggle" style={{fontWeight:600,fontSize:'1.08rem',color:'var(--color-text)',cursor:'pointer',marginBottom:0}}>
+                                                Make this food available for ordering
+                                            </label>
+                                            <input
+                                                id="orderable-toggle"
+                                                type="checkbox"
+                                                checked={isOrderable}
+                                                onChange={e => setIsOrderable(e.target.checked)}
+                                                style={{display:'none'}}
+                                            />
+                                            <span
+                                                onClick={()=>setIsOrderable(v=>!v)}
+                                                style={{
+                                                    display:'inline-block',
+                                                    width:44,
+                                                    height:24,
+                                                    borderRadius:12,
+                                                    background:isOrderable?'var(--color-accent)':'#ccc',
+                                                    position:'relative',
+                                                    cursor:'pointer',
+                                                    transition:'background 0.2s',
+                                                }}
+                                            >
+                                                <span style={{
+                                                    position:'absolute',
+                                                    left:isOrderable?22:2,
+                                                    top:2,
+                                                    width:20,
+                                                    height:20,
+                                                    borderRadius:'50%',
+                                                    background:'#fff',
+                                                    boxShadow:'0 1px 4px 0 rgba(0,0,0,0.10)',
+                                                    transition:'left 0.2s',
+                                                }}></span>
+                                            </span>
+                                        </div>
+                                    </div>
+                                    {isOrderable && (
+                                        <div className="form-input-card">
+                                            <label htmlFor="price" className="form-field-label">Price ($)</label>
+                                            <input
+                                                id="price"
+                                                type="number"
+                                                value={price}
+                                                onChange={e => setPrice(e.target.value)}
+                                                required
+                                                className="form-text-input"
+                                                placeholder="e.g., 10.99"
+                                                min="0"
+                                                step="0.01"
+                                            />
+                                        </div>
+                                    )}
                                             <button
                                                 type="submit"
                                                 disabled={isDisabled}

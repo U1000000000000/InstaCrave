@@ -52,7 +52,7 @@
 }
 
 .dropdown-item.selected {
-  background: var(--color-accent, #ff4081);
-  color: #fff;
+  background: var(--color-dropdown-hover, #353535);
+  color: var(--color-text);
   font-weight: 600;
 }

@@ -1,0 +1,223 @@
+.custom-dropdown {
+  position: relative;
+  width: 100%;
+  margin-top: 4px;
+}
+
+.dropdown-button {
+  border-radius: 50px;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.dropdown-button:hover {
+  opacity: 0.85;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+/* Status-specific button colors - lighter pastel versions */
+.order-card.status-pending .dropdown-button {
+  background: #fff3cd;
+  color: #856404;
+  border: 1px solid #ffeaa7;
+}
+
+.order-card.status-confirmed .dropdown-button {
+  background: #cfe2ff;
+  color: #084298;
+  border: 1px solid #b6d4fe;
+}
+
+.order-card.status-preparing .dropdown-button {
+  background: #ffe5d0;
+  color: #a04000;
+  border: 1px solid #ffd3b6;
+}
+
+.order-card.status-ready .dropdown-button {
+  background: #d1f4d5;
+  color: #146c20;
+  border: 1px solid #baedbd;
+}
+
+.order-card.status-delivered .dropdown-button {
+  background: #e8f5e9;
+  color: #2e7d32;
+  border: 1px solid #c8e6c9;
+}
+
+.order-card.status-cancelled .dropdown-button {
+  background: #f8d7da;
+  color: #842029;
+  border: 1px solid #f5c2c7;
+}
+
+.dropdown-content {
+  display: block;
+  position: absolute;
+  left: 0;
+  top: 110%;
+  width: 100%;
+  min-width: 140px;
+  background: var(--color-surface);
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  z-index: 10;
+  padding: 8px 0;
+  border: 1px solid var(--color-border);
+}
+
+.dropdown-item {
+  padding: 10px 18px;
+  cursor: pointer;
+  font-size: 1rem;
+  color: var(--color-text-secondary);
+  transition: background 0.18s, color 0.18s;
+}
+
+/* Selected item uses current status color */
+.order-card.status-pending .dropdown-item.selected {
+  background: #fff3cd;
+  color: #856404;
+  font-weight: 700;
+}
+
+.order-card.status-confirmed .dropdown-item.selected {
+  background: #cfe2ff;
+  color: #084298;
+  font-weight: 700;
+}
+
+.order-card.status-preparing .dropdown-item.selected {
+  background: #ffe5d0;
+  color: #a04000;
+  font-weight: 700;
+}
+
+.order-card.status-ready .dropdown-item.selected {
+  background: #d1f4d5;
+  color: #146c20;
+  font-weight: 700;
+}
+
+.order-card.status-delivered .dropdown-item.selected {
+  background: #e8f5e9;
+  color: #2e7d32;
+  font-weight: 700;
+}
+
+.order-card.status-cancelled .dropdown-item.selected {
+  background: #f8d7da;
+  color: #842029;
+  font-weight: 700;
+}
+
+/* Hover colors match the item being hovered, not the current status */
+.dropdown-item:hover {
+  font-weight: 600;
+}
+
+.dropdown-item:nth-child(1):hover { /* pending */
+  background: #fff3cd;
+  color: #856404;
+}
+
+.dropdown-item:nth-child(2):hover { /* confirmed */
+  background: #cfe2ff;
+  color: #084298;
+}
+
+.dropdown-item:nth-child(3):hover { /* preparing */
+  background: #ffe5d0;
+  color: #a04000;
+}
+
+.dropdown-item:nth-child(4):hover { /* ready */
+  background: #d1f4d5;
+  color: #146c20;
+}
+
+.dropdown-item:nth-child(5):hover { /* delivered */
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.dropdown-item:nth-child(6):hover { /* cancelled */
+  background: #f8d7da;
+  color: #842029;
+}
+
+.order-card {
+  z-index: 1;
+}
+
+.order-card.dropdown-open {
+  z-index: 1000;
+}
+
+/* Status filter buttons */
+.status-filter-btn {
+  padding: 8px 16px;
+  border-radius: 20px;
+  border: 2px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.status-filter-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.status-filter-btn.active {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  background: var(--color-surface-alt);
+}
+
+/* Status-specific filter button colors */
+.status-filter-btn.status-pending.active {
+  background: #fff3cd;
+  color: #856404;
+  border-color: #ffeaa7;
+}
+
+.status-filter-btn.status-confirmed.active {
+  background: #cfe2ff;
+  color: #084298;
+  border-color: #b6d4fe;
+}
+
+.status-filter-btn.status-preparing.active {
+  background: #ffe5d0;
+  color: #a04000;
+  border-color: #ffd3b6;
+}
+
+.status-filter-btn.status-ready.active {
+  background: #d1f4d5;
+  color: #146c20;
+  border-color: #baedbd;
+}
+
+.status-filter-btn.status-delivered.active {
+  background: #e8f5e9;
+  color: #2e7d32;
+  border-color: #c8e6c9;
+}
+
+.status-filter-btn.status-cancelled.active {
+  background: #f8d7da;
+  color: #842029;
+  border-color: #f5c2c7;
+}

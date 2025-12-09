@@ -17,6 +17,8 @@ async function createFood(req, res) {
     description: req.body.description,
     video: fileUploadResult.url,
     foodPartner: req.foodPartner._id,
+    isOrderable: req.body.isOrderable === 'true',
+    price: req.body.isOrderable === 'true' ? parseFloat(req.body.price) : undefined,
   });
 
   res.status(201).json({
@@ -343,7 +345,7 @@ async function editFood(req, res) {
       updateFields.video = fileUploadResult.url;
     }
 
-    const allowedFields = ["name", "description", "video"];
+    const allowedFields = ["name", "description", "video", "price", "isOrderable"];
     const updateKeys = Object.keys(updateFields);
 
     if (updateKeys.length !== 1) {

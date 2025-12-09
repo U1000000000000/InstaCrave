@@ -34,6 +34,10 @@ const ReelDashboard = () => {
   const [descInput, setDescInput] = useState('');
   const [videoFile, setVideoFile] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [editingOrderable, setEditingOrderable] = useState(false);
+  const [orderableInput, setOrderableInput] = useState(false);
+  const [editingPrice, setEditingPrice] = useState(false);
+  const [priceInput, setPriceInput] = useState('');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   useEffect(() => {
@@ -43,6 +47,8 @@ const ReelDashboard = () => {
         setFoodItem(found);
         setNameInput(found?.name || '');
         setDescInput(found?.description || '');
+        setOrderableInput(found?.isOrderable ?? false);
+        setPriceInput(found?.price?.toString() ?? '');
       });
         axios.get(`${API_BASE_URL}/api/food/comments?foodId=${id}`, { withCredentials: true })
       .then(response => {
@@ -54,16 +60,20 @@ const ReelDashboard = () => {
       });
   }, [id]);
 
-  const handleSaveField = async (field) => {
+  const handleSaveField = async (field, value) => {
     setIsSaving(true);
     try {
       const payload = {};
       if (field === 'name') payload.name = nameInput;
       if (field === 'description') payload.description = descInput;
+      if (field === 'isOrderable') payload.isOrderable = value;
+      if (field === 'price') payload.price = Number(priceInput);
       await axios.patch(`${API_BASE_URL}/api/food/${id}`, payload, { withCredentials: true });
       setFoodItem(f => ({ ...f, ...payload }));
       if (field === 'name') setEditingName(false);
       if (field === 'description') setEditingDescription(false);
+      if (field === 'isOrderable') setEditingOrderable(false);
+      if (field === 'price') setEditingPrice(false);
     } catch (e) {
       alert('Failed to update.');
     }
@@ -111,94 +121,187 @@ const ReelDashboard = () => {
               ></video>
             </div>
           </div>
-          <div style={{marginTop:0,background:'transparent',borderRadius:'0 0 24px 24px',width:'100%',maxWidth:480,padding:'0 20px 24px 20px',boxSizing:'border-box'}}>
+            <div style={{marginTop:0,background:'transparent',borderRadius:'0 0 24px 24px',width:'100%',maxWidth:480,padding:'0 20px 24px 20px',boxSizing:'border-box'}}>
             <hr style={{margin:'18px 0',border:'none',borderTop:'2px solid var(--color-border)',width:'100%'}}/>
             <div style={{padding:'0 4px',color:'var(--color-text)',fontSize:'1.15rem',fontWeight:500}}>
+              {/* Name Card */}
               <div style={{marginBottom:16,padding:'8px 16px',backgroundColor:'var(--color-surface-alt)',borderRadius:8,position:'relative'}}>
-              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-                <div style={{fontWeight:600,marginBottom:8}}>Name:</div>
-                {!editingName && (
-                  <button onClick={e=>{e.stopPropagation();setEditingName(true);}} style={{background:'none',border:'none',color:'var(--color-accent)',fontWeight:700,cursor:'pointer',fontSize:'1rem',marginLeft:8}}>Edit</button>
+                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                  <div style={{fontWeight:600,marginBottom:8}}>Name:</div>
+                  {!editingName && (
+                    <button onClick={e=>{e.stopPropagation();setEditingName(true);}} style={{background:'none',border:'none',color:'var(--color-accent)',fontWeight:700,cursor:'pointer',fontSize:'1rem',marginLeft:8}}>Edit</button>
+                  )}
+                </div>
+                {editingName ? (
+                  <div style={{marginTop:4}}>
+                    <input
+                      value={nameInput}
+                      onChange={e=>setNameInput(e.target.value)}
+                      style={{
+                        fontSize: '1.08rem',
+                        padding: '10px 14px',
+                        borderRadius: '8px',
+                        border: '1.5px solid var(--color-border)',
+                        width: '100%',
+                        background: 'var(--color-surface)',
+                        color: 'var(--color-text)',
+                        outline: 'none',
+                        boxShadow: '0 1px 4px 0 rgba(0,0,0,0.03)',
+                        transition: 'border 0.2s',
+                        boxSizing: 'border-box',
+                      }}
+                      onFocus={e => e.target.style.border = '1.5px solid var(--color-accent)'}
+                      onBlur={e => e.target.style.border = '1.5px solid var(--color-border)'}
+                    />
+                    <div style={{display:'flex',gap:8,marginTop:8}}>
+                      <button onClick={()=>handleSaveField('name')} disabled={isSaving} style={{flex:1,background:'var(--color-accent)',color:'#fff',border:'none',borderRadius:4,padding:'8px 0',fontWeight:700,cursor:'pointer'}}>Save</button>
+                      <button onClick={()=>{setEditingName(false);setNameInput(foodItem.name);}} style={{flex:1,background:'var(--color-surface)',color:'var(--color-text)',border:'1px solid var(--color-border)',borderRadius:4,padding:'8px 0',fontWeight:700,cursor:'pointer'}}>Cancel</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{fontSize:'1rem',lineHeight:1.4,marginTop:4}}>{foodItem.name}</div>
                 )}
               </div>
-              {editingName ? (
-                <div style={{marginTop:4}}>
+              {/* Description Card */}
+              <div style={{marginBottom:16,padding:'8px 16px',backgroundColor:'var(--color-surface-alt)',borderRadius:8,position:'relative'}}>
+                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                  <div style={{fontWeight:600,marginBottom:8}}>Description:</div>
+                  {!editingDescription && (
+                    <button onClick={e=>{e.stopPropagation();setEditingDescription(true);}} style={{background:'none',border:'none',color:'var(--color-accent)',fontWeight:700,cursor:'pointer',fontSize:'1rem',marginLeft:8}}>Edit</button>
+                  )}
+                </div>
+                {editingDescription ? (
+                  <div style={{marginTop:4}}>
+                    <textarea
+                      value={descInput}
+                      onChange={e=>setDescInput(e.target.value)}
+                      style={{
+                        fontSize: '1.08rem',
+                        padding: '12px 16px',
+                        borderRadius: '10px',
+                        border: '1.5px solid var(--color-border)',
+                        width: '100%',
+                        minHeight: 140,
+                        maxHeight: 320,
+                        resize: 'vertical',
+                        boxSizing: 'border-box',
+                        background: 'var(--color-surface)',
+                        color: 'var(--color-text)',
+                        outline: 'none',
+                        boxShadow: '0 1px 4px 0 rgba(0,0,0,0.03)',
+                        transition: 'border 0.2s',
+                        scrollbarWidth: 'thin',
+                        scrollbarColor: '#E23747 var(--color-surface)',
+                      }}
+                      className="custom-scrollbar"
+                      onFocus={e => e.target.style.border = '1.5px solid var(--color-accent)'}
+                      onBlur={e => e.target.style.border = '1.5px solid var(--color-border)'}
+                    />
+                    <div style={{display:'flex',gap:8,marginTop:8}}>
+                      <button onClick={()=>handleSaveField('description')} disabled={isSaving} style={{flex:1,background:'var(--color-accent)',color:'#fff',border:'none',borderRadius:4,padding:'8px 0',fontWeight:700,cursor:'pointer'}}>Save</button>
+                      <button onClick={()=>{setEditingDescription(false);setDescInput(foodItem.description);}} style={{flex:1,background:'var(--color-surface)',color:'var(--color-text)',border:'1px solid var(--color-border)',borderRadius:4,padding:'8px 0',fontWeight:700,cursor:'pointer'}}>Cancel</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{fontSize:'1rem',lineHeight:1.4,marginTop:4}}>{foodItem.description}</div>
+                )}
+              </div>
+              {/* Make Meal Available to Order Card - toggle switch style */}
+              <div style={{marginBottom:16,padding:'8px 16px',backgroundColor:'var(--color-surface-alt)',borderRadius:8,position:'relative'}}>
+                <div style={{display:'flex',flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:18}}>
+                  <div style={{fontWeight:600,fontSize:'1.08rem',color:'var(--color-text)',marginBottom:0}}>
+                    Available to Order
+                  </div>
                   <input
-                    value={nameInput}
-                    onChange={e=>setNameInput(e.target.value)}
-                    style={{
-                      fontSize: '1.08rem',
-                      padding: '10px 14px',
-                      borderRadius: '8px',
-                      border: '1.5px solid var(--color-border)',
-                      width: '100%',
-                      background: 'var(--color-surface)',
-                      color: 'var(--color-text)',
-                      outline: 'none',
-                      boxShadow: '0 1px 4px 0 rgba(0,0,0,0.03)',
-                      transition: 'border 0.2s',
-                      boxSizing: 'border-box',
+                    id="orderable-toggle"
+                    type="checkbox"
+                    checked={orderableInput}
+                    onChange={e => {
+                      setOrderableInput(e.target.checked);
+                      handleSaveField('isOrderable', e.target.checked);
                     }}
-                    onFocus={e => e.target.style.border = '1.5px solid var(--color-accent)'}
-                    onBlur={e => e.target.style.border = '1.5px solid var(--color-border)'}
+                    style={{display:'none'}}
                   />
-                  <div style={{display:'flex',gap:8,marginTop:8}}>
-                    <button onClick={()=>handleSaveField('name')} disabled={isSaving} style={{flex:1,background:'var(--color-accent)',color:'#fff',border:'none',borderRadius:4,padding:'8px 0',fontWeight:700,cursor:'pointer'}}>Save</button>
-                    <button onClick={()=>{setEditingName(false);setNameInput(foodItem.name);}} style={{flex:1,background:'var(--color-surface)',color:'var(--color-text)',border:'1px solid var(--color-border)',borderRadius:4,padding:'8px 0',fontWeight:700,cursor:'pointer'}}>Cancel</button>
-                  </div>
+                  <span
+                    onClick={() => {
+                      const newValue = !orderableInput;
+                      setOrderableInput(newValue);
+                      handleSaveField('isOrderable', newValue);
+                    }}
+                    style={{
+                      display:'inline-block',
+                      width:44,
+                      height:24,
+                      borderRadius:12,
+                      background:orderableInput?'var(--color-accent)':'#ccc',
+                      position:'relative',
+                      cursor:'pointer',
+                      transition:'background 0.2s',
+                    }}
+                  >
+                    <span style={{
+                      position:'absolute',
+                      left:orderableInput?22:2,
+                      top:2,
+                      width:20,
+                      height:20,
+                      borderRadius:'50%',
+                      background:'#fff',
+                      boxShadow:'0 1px 4px 0 rgba(0,0,0,0.10)',
+                      transition:'left 0.2s',
+                    }}></span>
+                  </span>
                 </div>
-              ) : (
-                <div style={{fontSize:'1rem',lineHeight:1.4,marginTop:4}}>{foodItem.name}</div>
-              )}
-            </div>
-            <div style={{marginBottom:16,padding:'8px 16px',backgroundColor:'var(--color-surface-alt)',borderRadius:8,position:'relative'}}>
-              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-                <div style={{fontWeight:600,marginBottom:8}}>Description:</div>
-                {!editingDescription && (
-                  <button onClick={e=>{e.stopPropagation();setEditingDescription(true);}} style={{background:'none',border:'none',color:'var(--color-accent)',fontWeight:700,cursor:'pointer',fontSize:'1rem',marginLeft:8}}>Edit</button>
-                )}
               </div>
-              {editingDescription ? (
-                <div style={{marginTop:4}}>
-                  <textarea
-                    value={descInput}
-                    onChange={e=>setDescInput(e.target.value)}
-                    style={{
-                      fontSize: '1.08rem',
-                      padding: '12px 16px',
-                      borderRadius: '10px',
-                      border: '1.5px solid var(--color-border)',
-                      width: '100%',
-                      minHeight: 140,
-                      maxHeight: 320,
-                      resize: 'vertical',
-                      boxSizing: 'border-box',
-                      background: 'var(--color-surface)',
-                      color: 'var(--color-text)',
-                      outline: 'none',
-                      boxShadow: '0 1px 4px 0 rgba(0,0,0,0.03)',
-                      transition: 'border 0.2s',
-                      scrollbarWidth: 'thin',
-                      scrollbarColor: '#E23747 var(--color-surface)',
-                    }}
-                    className="custom-scrollbar"
-                    onFocus={e => e.target.style.border = '1.5px solid var(--color-accent)'}
-                    onBlur={e => e.target.style.border = '1.5px solid var(--color-border)'}
-                  />
-                  <div style={{display:'flex',gap:8,marginTop:8}}>
-                    <button onClick={()=>handleSaveField('description')} disabled={isSaving} style={{flex:1,background:'var(--color-accent)',color:'#fff',border:'none',borderRadius:4,padding:'8px 0',fontWeight:700,cursor:'pointer'}}>Save</button>
-                    <button onClick={()=>{setEditingDescription(false);setDescInput(foodItem.description);}} style={{flex:1,background:'var(--color-surface)',color:'var(--color-text)',border:'1px solid var(--color-border)',borderRadius:4,padding:'8px 0',fontWeight:700,cursor:'pointer'}}>Cancel</button>
+              {/* Set/Change Price Card - only show if isOrderable is true */}
+              {(orderableInput || foodItem.isOrderable) && (
+                <div style={{marginBottom:16,padding:'8px 16px',backgroundColor:'var(--color-surface-alt)',borderRadius:8,position:'relative'}}>
+                  <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                    <div style={{fontWeight:600,marginBottom:8}}>Price:</div>
+                    {!editingPrice && (
+                      <button onClick={e=>{e.stopPropagation();setEditingPrice(true);}} style={{background:'none',border:'none',color:'var(--color-accent)',fontWeight:700,cursor:'pointer',fontSize:'1rem',marginLeft:8}}>Edit</button>
+                    )}
                   </div>
+                  {editingPrice ? (
+                    <div style={{marginTop:4}}>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={priceInput}
+                        onChange={e=>setPriceInput(e.target.value)}
+                        style={{
+                          fontSize: '1.08rem',
+                          padding: '10px 14px',
+                          borderRadius: '8px',
+                          border: '1.5px solid var(--color-border)',
+                          width: '100%',
+                          background: 'var(--color-surface)',
+                          color: 'var(--color-text)',
+                          outline: 'none',
+                          boxShadow: '0 1px 4px 0 rgba(0,0,0,0.03)',
+                          transition: 'border 0.2s',
+                          boxSizing: 'border-box',
+                        }}
+                        onFocus={e => e.target.style.border = '1.5px solid var(--color-accent)'}
+                        onBlur={e => e.target.style.border = '1.5px solid var(--color-border)'}
+                      />
+                      <div style={{display:'flex',gap:8,marginTop:8}}>
+                        <button onClick={()=>handleSaveField('price')} disabled={isSaving} style={{flex:1,background:'var(--color-accent)',color:'#fff',border:'none',borderRadius:4,padding:'8px 0',fontWeight:700,cursor:'pointer'}}>Save</button>
+                        <button onClick={()=>{setEditingPrice(false);setPriceInput(foodItem.price?.toString() ?? '');}} style={{flex:1,background:'var(--color-surface)',color:'var(--color-text)',border:'1px solid var(--color-border)',borderRadius:4,padding:'8px 0',fontWeight:700,cursor:'pointer'}}>Cancel</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{fontSize:'1rem',lineHeight:1.4,marginTop:4}}>{foodItem.price !== undefined ? `$${foodItem.price}` : 'Not Set'}</div>
+                  )}
                 </div>
-              ) : (
-                <div style={{fontSize:'1rem',lineHeight:1.4,marginTop:4}}>{foodItem.description}</div>
               )}
-            </div>
-            <>
+              {/* Likes Card */}
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16,padding:'8px 16px',backgroundColor:'var(--color-surface-alt)',borderRadius:8}}>
                 <span>Likes:</span>
                 <span style={{fontWeight:700,fontSize:'1.3rem'}}>{foodItem.likeCount ?? 0}</span>
               </div>
+              {/* Comments Card */}
               <div
                 style={{
                   display: 'flex',
@@ -249,14 +352,21 @@ const ReelDashboard = () => {
                   </div>
                 )}
               </div>
+              {/* Saves Card */}
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16,padding:'8px 16px',backgroundColor:'var(--color-surface-alt)',borderRadius:8}}>
                 <span>Saves:</span>
                 <span style={{fontWeight:700,fontSize:'1.3rem'}}>{foodItem.savesCount ?? 0}</span>
               </div>
+              {/* Shares Card */}
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16,padding:'8px 16px',backgroundColor:'var(--color-surface-alt)',borderRadius:8}}>
                 <span>Shares:</span>
                 <span style={{fontWeight:700,fontSize:'1.3rem'}}>{foodItem.shareCount ?? 0}</span>
               </div>
+            <>
+              {/* Likes Card */}
+              {/* Comments Card */}
+              {/* Saves Card */}
+              {/* Shares Card */}
             </>
             <div style={{marginBottom:16,padding:'8px 16px',backgroundColor:'var(--color-surface-alt)',borderRadius:8}}>
               <form onSubmit={handleVideoUpload} style={{display:'flex',flexDirection:'column',gap:8}}>

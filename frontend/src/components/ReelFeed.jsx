@@ -5,6 +5,7 @@ import axios from 'axios'
 import { API_BASE_URL } from '../config'
 import { FaRegHeart, FaHeart, FaRegComment, FaRegBookmark, FaBookmark, FaShareAlt } from 'react-icons/fa'
 import ShareModal from './ShareModal';
+import OrderForm from './OrderForm';
 
 const ReelFeed = ({ items = [], onLike, onSave, onComment, onFollow, emptyMessage = 'No videos yet.', customRender }) => {
   const [hearts, setHearts] = useState([]);
@@ -258,6 +259,9 @@ const ReelFeed = ({ items = [], onLike, onSave, onComment, onFollow, emptyMessag
     if (onLike) onLike(item);
   }, [onLike]);
 
+  const [orderModalOpen, setOrderModalOpen] = useState(false);
+  const [orderFood, setOrderFood] = useState(null);
+
   return (
     <div className="reels-page">
       <div className="reels-feed" role="list">
@@ -412,6 +416,25 @@ const ReelFeed = ({ items = [], onLike, onSave, onComment, onFollow, emptyMessag
                 <div className="reel-content">
                   <div className="reel-food-title" style={{ fontWeight: 700, fontSize: '1.12rem', color: '#fff', marginBottom: 2 }}>
                     {item.name}
+                    {item.isOrderable && (
+                      <button
+                        style={{
+                          marginLeft: 12,
+                          background: 'var(--color-accent)',
+                          color: '#fff',
+                          border: 'none',
+                          borderRadius: '6px',
+                          fontWeight: 700,
+                          fontSize: '1.08rem',
+                          padding: '4px 14px',
+                          cursor: 'pointer',
+                          boxShadow: '0 2px 8px rgba(226,55,71,0.12)'
+                        }}
+                        onClick={() => { setOrderFood(item); setOrderModalOpen(true); }}
+                      >
+                        ${item.price} Order
+                      </button>
+                    )}
                   </div>
                   <div className="reel-description-wrapper">
                     <span
@@ -509,6 +532,13 @@ const ReelFeed = ({ items = [], onLike, onSave, onComment, onFollow, emptyMessag
         }}
         copied={copied}
       />
+      {orderModalOpen && orderFood && (
+        <OrderForm
+          food={orderFood}
+          onClose={() => setOrderModalOpen(false)}
+          onOrderPlaced={() => {/* Optionally refresh orders or show toast */}}
+        />
+      )}
     </div>
   )
 }
