@@ -58,10 +58,6 @@ src/
 └── config.js       # API configuration
 ```
 
-## Contributing
-
-This is a web development project by Ujjval Agarwal.
-
 ---
 
 Made with ❤️ and 🍕
