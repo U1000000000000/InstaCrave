@@ -2,8 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { FaArrowLeft, FaShareAlt, FaSortAmountDown, FaRegHeart } from 'react-icons/fa';
 import { useParams, useNavigate } from 'react-router-dom';
-import axios from 'axios';
-import { API_BASE_URL } from '../../config';
+import { API_ENDPOINTS } from '../../constants';
 import '../../styles/profile.css';
 import '../../styles/meal-card.css';
 import '../../styles/custom-dropdown.css';
@@ -12,6 +11,8 @@ import UserBottomNav from '../../components/UserBottomNav';
 import BottomNavFoodPartner from '../../components/BottomNavFoodPartner';
 import { useAuth } from '../../context/AuthContext';
 import { USER_TYPES } from '../../constants';
+import api from '../../services/api';
+import { useProtectedRequest } from '../../hooks/useProtectedRequest';
 
 const SORT_OPTIONS = [
   { value: 'newest', label: 'Newest' },
@@ -147,8 +148,25 @@ const PublicFoodPartnerProfile = () => {
   const { foodPartnerId } = useParams();
   const navigate = useNavigate();
   const [profile, setProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const { data, loading, error: fetchError, refetch } = useProtectedRequest(
+    () => api.get(`${API_ENDPOINTS.FOOD_PARTNER.BASE}/${foodPartnerId}`),
+    [foodPartnerId]
+  );
+  useEffect(() => {
+    if (data) {
+      const fp = data.data?.foodPartner || data.data || {};
+      const rawIsFollowing =
+        data.data?.isFollowing !== undefined ? data.data.isFollowing : fp.isFollowing;
+      const normalizedIsFollowing = (rawIsFollowing === true)
+        || (rawIsFollowing === 'true')
+        || (rawIsFollowing === 1)
+        || (rawIsFollowing === '1');
+      setProfile({ ...fp, isFollowing: normalizedIsFollowing });
+    }
+    if (fetchError) setError('Could not load food partner.');
+  }, [data, fetchError]);
+  // ...existing code...
   const [followLoading, setFollowLoading] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
@@ -201,36 +219,16 @@ const PublicFoodPartnerProfile = () => {
     return () => document.removeEventListener('click', handleClickOutside);
   }, [dropdownOpen]);
 
-  useEffect(() => {
-    setLoading(true);
-    axios.get(`${API_BASE_URL}/api/food-partner/${foodPartnerId}`, { withCredentials: true })
-      .then(res => {
-        const fp = res.data.foodPartner || {};
-        // Normalize isFollowing to a boolean. Support either top-level or nested value.
-        const rawIsFollowing =
-          res.data.isFollowing !== undefined ? res.data.isFollowing : fp.isFollowing;
-        const normalizedIsFollowing = (rawIsFollowing === true)
-          || (rawIsFollowing === 'true')
-          || (rawIsFollowing === 1)
-          || (rawIsFollowing === '1');
-        setProfile({ ...fp, isFollowing: normalizedIsFollowing });
-        setLoading(false);
-      })
-      .catch(() => {
-        setError('Could not load food partner.');
-        setLoading(false);
-      });
-  }, [foodPartnerId]);
+
 
   const handleFollow = async () => {
     if (!profile) return;
     setFollowLoading(true);
     try {
-      await axios.post(`${API_BASE_URL}/api/food-partner/follow`, { foodpartner: profile._id }, { withCredentials: true });
+      await api.post(API_ENDPOINTS.FOOD_PARTNER.FOLLOW, { foodpartner: profile._id });
       setProfile(prev => {
         if (!prev) return prev;
         const wasFollowing = !!prev.isFollowing;
-        // Use followCount if available, else fallback to followers (array or number)
         let newFollowCount = (typeof prev.followCount === 'number') ? prev.followCount :
           (Array.isArray(prev.followers) ? prev.followers.length : (prev.followers || 0));
         newFollowCount = wasFollowing ? newFollowCount - 1 : newFollowCount + 1;
@@ -240,6 +238,7 @@ const PublicFoodPartnerProfile = () => {
           followCount: newFollowCount
         };
       });
+      refetch();
     } finally {
       setFollowLoading(false);
     }

@@ -1,0 +1,108 @@
+name: InstaCrave Backend CI/CD
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+        cache-dependency-path: backend/package-lock.json
+
+    - name: Install dependencies
+      working-directory: ./backend
+      run: npm ci
+
+    - name: Run linting
+      working-directory: ./backend
+      run: npm run lint
+
+    - name: Run unit tests
+      working-directory: ./backend
+      run: npm run test:unit
+
+    - name: Run integration tests
+      working-directory: ./backend
+      run: npm run test:integration
+
+    - name: Run full test suite with coverage
+      working-directory: ./backend
+      run: npm run test:coverage
+
+    - name: Enforce minimum coverage
+      working-directory: ./backend
+      run: |
+        npx nyc check-coverage --statements 90 --branches 70 --functions 80 --lines 90
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        files: ./backend/coverage/lcov.info
+        flags: backend
+        name: backend-coverage
+        fail_ci_if_error: true
+
+    - name: Archive test results
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: test-results-${{ matrix.node-version }}
+        path: |
+          backend/coverage/
+          backend/*.log
+
+  build:
+    name: Build Check
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Use Node.js 18.x
+      uses: actions/setup-node@v3
+      with:
+        node-version: 18.x
+        cache: 'npm'
+        cache-dependency-path: backend/package-lock.json
+
+    - name: Install dependencies
+      working-directory: ./backend
+      run: npm ci
+
+    - name: Check for security vulnerabilities
+      working-directory: ./backend
+      run: npm audit --audit-level=high
+
+    - name: Build success
+      run: echo "✅ Build completed successfully"
+
+  notify:
+    name: Notify Status
+    runs-on: ubuntu-latest
+    needs: [test, build]
+    if: always()
+
+    steps:
+    - name: Test Results
+      run: |
+        echo "Test Status: ${{ needs.test.result }}"
+        echo "Build Status: ${{ needs.build.result }}"

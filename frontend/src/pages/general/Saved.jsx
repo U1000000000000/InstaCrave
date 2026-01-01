@@ -5,15 +5,16 @@ import '../../styles/reels.css';
 import axios from 'axios';
 import ReelFeed from '../../components/ReelFeed';
 import { API_BASE_URL } from '../../config';
+import { API_ENDPOINTS } from '../../constants';
 
 const Saved = () => {
     const [videos, setVideos] = useState([]);
     const location = useLocation();
 
     useEffect(() => {
-        axios.get(`${API_BASE_URL}/api/food/save`, { withCredentials: true })
+        axios.get(`${API_BASE_URL}${API_ENDPOINTS.FOOD.SAVE}`, { withCredentials: true })
             .then(response => {
-                const foods = response.data.responseSavedFoods || [];
+                const foods = response.data.data || [];
                 const savedFoods = foods.map((item) => ({
                     _id: item._id,
                     name: item.name || '',
@@ -49,8 +50,8 @@ const Saved = () => {
     }, []);
 
     async function likeVideo(item) {
-        const response = await axios.post(`${API_BASE_URL}/api/food/like`, { foodId: item._id }, { withCredentials: true });
-        if (response.data.like) {
+        const response = await axios.post(`${API_BASE_URL}${API_ENDPOINTS.FOOD.LIKE}`, { foodId: item._id }, { withCredentials: true });
+        if (response.data.data) {
             setVideos((prev) => prev.map((v) => v._id === item._id ? { ...v, likeCount: v.likeCount + 1, isLiked: true } : v));
         } else {
             setVideos((prev) => prev.map((v) => v._id === item._id ? { ...v, likeCount: v.likeCount - 1, isLiked: false } : v));
@@ -58,8 +59,8 @@ const Saved = () => {
     }
 
     async function saveVideo(item) {
-        const response = await axios.post(`${API_BASE_URL}/api/food/save`, { foodId: item._id }, { withCredentials: true });
-        if (response.data.save) {
+        const response = await axios.post(`${API_BASE_URL}${API_ENDPOINTS.FOOD.SAVE}`, { foodId: item._id }, { withCredentials: true });
+        if (response.data.data) {
             setVideos((prev) => prev.map((v) => v._id === item._id ? { ...v, savesCount: v.savesCount + 1, isSaved: true } : v));
         } else {
             setVideos((prev) => prev.map((v) => v._id === item._id ? { ...v, savesCount: Math.max(0, (v.savesCount ?? 1) - 1), isSaved: false } : v));

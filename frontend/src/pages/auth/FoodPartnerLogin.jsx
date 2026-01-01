@@ -25,16 +25,9 @@ const FoodPartnerLogin = () => {
 
     setIsLoading(true);
     try {
-      const response = await login(
-        { email, password },
-        USER_TYPES.FOOD_PARTNER
-      );
-
-            if (response.user?._id) {
-        localStorage.setItem(STORAGE_KEYS.USER_ID, response.user._id);
-      }
-
-            window.location.href = ROUTES.FOOD_PARTNER.CREATE_FOOD;
+      await login({ email, password }, USER_TYPES.FOOD_PARTNER);
+      // After login, user context will update. Navigate to create food page.
+      navigate(ROUTES.FOOD_PARTNER.CREATE_FOOD, { replace: true });
     } catch (err) {
       setError(err.message || 'Login failed. Please check your credentials.');
     } finally {

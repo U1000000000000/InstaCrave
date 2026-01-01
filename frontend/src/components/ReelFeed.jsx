@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import CommentsModal from './CommentsModal'
-import axios from 'axios'
-import { API_BASE_URL } from '../config'
+import api from '../services/api';
+import { API_ENDPOINTS } from '../constants'
 import { FaRegHeart, FaHeart, FaRegComment, FaRegBookmark, FaBookmark, FaShareAlt } from 'react-icons/fa'
 import ShareModal from './ShareModal';
 import OrderForm from './OrderForm';
@@ -119,7 +119,7 @@ const ReelFeed = ({ items = [], onLike, onSave, onComment, onFollow, emptyMessag
         : i
     ));
     try {
-      await axios.post(`${API_BASE_URL}/api/food/share`, { foodId: item._id }, { withCredentials: true });
+      await api.post(API_ENDPOINTS.FOOD.SHARE, { foodId: item._id });
     } catch (e) {
       setLocalItems(prev => prev.map(i =>
         i._id === item._id
@@ -151,7 +151,7 @@ const ReelFeed = ({ items = [], onLike, onSave, onComment, onFollow, emptyMessag
     ));
     if (onFollow) onFollow(item);
     try {
-      await axios.post(`${API_BASE_URL}/api/food-partner/follow`, { foodpartner: foodPartnerId }, { withCredentials: true });
+      await api.post(API_ENDPOINTS.FOOD_PARTNER.FOLLOW, { foodpartner: foodPartnerId });
     } catch (e) {
       setLocalItems(prev => prev.map(i =>
         i.foodPartner && i.foodPartner._id === foodPartnerId
@@ -171,11 +171,11 @@ const ReelFeed = ({ items = [], onLike, onSave, onComment, onFollow, emptyMessag
   const fetchComments = useCallback(async (foodId) => {
     setLoadingComments(true)
     try {
-      const res = await axios.get(`${API_BASE_URL}/api/food/comment?foodId=${foodId}`, { withCredentials: true })
-      setComments(res.data.comments || [])
+      const res = await api.get(`${API_ENDPOINTS.FOOD.COMMENT}?foodId=${foodId}`);
+      setComments(Array.isArray(res.data.data) ? res.data.data : [])
       setLocalItems(prev => prev.map(item =>
         item._id === foodId
-          ? { ...item, commentsCount: Array.isArray(res.data.comments) ? res.data.comments.length : item.commentsCount }
+          ? { ...item, commentsCount: Array.isArray(res.data.data) ? res.data.data.length : item.commentsCount }
           : item
       ));
     } catch (e) {

@@ -1,7 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import { useProtectedRequest } from '../../hooks/useProtectedRequest';
+import { searchApi } from '../../services/api';
 import { API_BASE_URL } from '../../config';
+import { API_ENDPOINTS } from '../../constants';
 import { FaSearch } from 'react-icons/fa';
 
 const GradientCard = ({ profileImage, name, mealCount, onClick }) => {
@@ -130,95 +132,107 @@ const UserSearch = () => {
     const [exploreItems, setExploreItems] = useState([]);
   const [exploreLoading, setExploreLoading] = useState(true);
 
-  useEffect(() => {
-    // Fetch unfollowed content for explore section
-    const fetchExploreContent = async () => {
-      try {
-        const res = await axios.get(`${API_BASE_URL}/api/search/explore`, { withCredentials: true });
-        
-        const unfollowedMeals = res.data.foodItems || [];
-        const unfollowedPartners = res.data.foodPartners || [];
-        
-        // Shuffle meals
-        const shuffledMeals = [...unfollowedMeals];
-        for (let i = shuffledMeals.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [shuffledMeals[i], shuffledMeals[j]] = [shuffledMeals[j], shuffledMeals[i]];
-        }
-        
-        // Shuffle partners
-        const shuffledPartners = [...unfollowedPartners];
-        for (let i = shuffledPartners.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [shuffledPartners[i], shuffledPartners[j]] = [shuffledPartners[j], shuffledPartners[i]];
-        }
-        
-                const layoutItems = [];
-        let mealIndex = 0;
-        let partnerIndex = 0;
-        let position = 0;
-        
-                const gridTracker = [];
-        
-        while (mealIndex < shuffledMeals.length || partnerIndex < shuffledPartners.length) {
-          const col = position % 3;
-          const row = Math.floor(position / 3);
-          
-                    if (partnerIndex < shuffledPartners.length && col <= 1) {
-                        const canPlacePartner = !gridTracker[position] && !gridTracker[position + 1] && 
-                                    !gridTracker[position + 3] && !gridTracker[position + 4];
-            
-            if (canPlacePartner && Math.random() < 0.15) {               layoutItems.push({ ...shuffledPartners[partnerIndex], type: 'partner', isTall: false });
-                            gridTracker[position] = true;
-              gridTracker[position + 1] = true;
-              gridTracker[position + 3] = true;
-              gridTracker[position + 4] = true;
-              partnerIndex++;
-              position += 2;               continue;
-            }
-          }
-          
-                    if (mealIndex < shuffledMeals.length) {
-            const isTall = !gridTracker[position] && !gridTracker[position + 3] && Math.random() < 0.05;
-            layoutItems.push({ ...shuffledMeals[mealIndex], type: 'meal', isTall });
-            gridTracker[position] = true;
-            if (isTall) {
-              gridTracker[position + 3] = true;
-            }
-            mealIndex++;
-          }
-          
-          position++;
-        }
-        
-        setExploreItems(layoutItems);
-        setExploreLoading(false);
-      } catch (err) {
-        console.error('Error fetching explore content:', err);
-        console.error('Error response:', err.response?.data);
-                setExploreItems([]);
-        setExploreLoading(false);
-      }
-    };
-    
-    fetchExploreContent();
-  }, []);
+  // useProtectedRequest for explore content
+  const { data: exploreData, loading: exploreLoadingApi } = useProtectedRequest(
+    () => searchApi.getExploreContent(),
+    []
+  );
 
-  const handleSearch = async (q = query, t = type) => {
-    if (!q.trim()) return;
-    setLoading(true);
-    setError('');
-    try {
-      const res = await axios.get(`${API_BASE_URL}/api/search`, {
-        params: { query: q, type: t },
-        withCredentials: true,
+  useEffect(() => {
+    if (exploreData) {
+      const data = exploreData.data || {};
+      const unfollowedMeals = data.foodItems || [];
+      const unfollowedPartners = data.foodPartners || [];
+
+      // Shuffle meals
+      const shuffledMeals = [...unfollowedMeals];
+      for (let i = shuffledMeals.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffledMeals[i], shuffledMeals[j]] = [shuffledMeals[j], shuffledMeals[i]];
+      }
+
+      // Shuffle partners
+      const shuffledPartners = [...unfollowedPartners];
+      for (let i = shuffledPartners.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffledPartners[i], shuffledPartners[j]] = [shuffledPartners[j], shuffledPartners[i]];
+      }
+
+      const layoutItems = [];
+      let mealIndex = 0;
+      let partnerIndex = 0;
+      let position = 0;
+
+      const gridTracker = [];
+
+      while (mealIndex < shuffledMeals.length || partnerIndex < shuffledPartners.length) {
+        const col = position % 3;
+        // const row = Math.floor(position / 3);
+
+        if (partnerIndex < shuffledPartners.length && col <= 1) {
+          const canPlacePartner = !gridTracker[position] && !gridTracker[position + 1] &&
+            !gridTracker[position + 3] && !gridTracker[position + 4];
+
+          if (canPlacePartner && Math.random() < 0.15) {
+            layoutItems.push({ ...shuffledPartners[partnerIndex], type: 'partner', isTall: false });
+            gridTracker[position] = true;
+            gridTracker[position + 1] = true;
+            gridTracker[position + 3] = true;
+            gridTracker[position + 4] = true;
+            partnerIndex++;
+            position += 2;
+            continue;
+          }
+        }
+
+        if (mealIndex < shuffledMeals.length) {
+          const isTall = !gridTracker[position] && !gridTracker[position + 3] && Math.random() < 0.05;
+          layoutItems.push({ ...shuffledMeals[mealIndex], type: 'meal', isTall });
+          gridTracker[position] = true;
+          if (isTall) {
+            gridTracker[position + 3] = true;
+          }
+          mealIndex++;
+        }
+
+        position++;
+      }
+
+      setExploreItems(layoutItems);
+    }
+  }, [exploreData]);
+  useEffect(() => {
+    setExploreLoading(exploreLoadingApi);
+  }, [exploreLoadingApi]);
+
+  // useProtectedRequest for search
+  const [searchParams, setSearchParams] = useState({ q: '', t: 'all' });
+  const { data: searchData, loading: searchLoading, error: searchError } = useProtectedRequest(
+    () => searchParams.q.trim() ? searchApi.search(searchParams.q, searchParams.t) : Promise.resolve({ data: { data: {} } }),
+    [searchParams]
+  );
+
+  useEffect(() => {
+    if (searchData && searchParams.q.trim()) {
+      const data = searchData.data || {};
+      setResults({
+        foodItems: data.foodItems || [],
+        foodPartners: data.foodPartners || [],
       });
-      setResults(res.data);
-    } catch (err) {
-      setError(err?.response?.data?.message || 'Error searching.');
+    } else if (!searchParams.q.trim()) {
       setResults({ foodItems: [], foodPartners: [] });
     }
-    setLoading(false);
+  }, [searchData, searchParams]);
+
+  useEffect(() => {
+    setLoading(searchLoading);
+  }, [searchLoading]);
+  useEffect(() => {
+    setError(searchError ? (searchError?.response?.data?.message || 'Error searching.') : '');
+  }, [searchError]);
+
+  const handleSearch = (q = query, t = type) => {
+    setSearchParams({ q, t });
   };
 
   const handleInput = e => {

@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import { useProtectedRequest } from '../../hooks/useProtectedRequest';
+import api from '../../services/api';
 import '../../styles/reels.css';
 import '../../styles/user-home.css';
 import ReelFeed from '../../components/ReelFeed';
 import { API_BASE_URL } from '../../config';
+import { API_ENDPOINTS } from '../../constants';
 import { useAuth } from '../../context/AuthContext';
 import LoadingSpinner from '../../components/LoadingSpinner';
 
@@ -13,30 +15,28 @@ const UserHome = () => {
   const [videos, setVideos] = useState([]);
   const [dataLoading, setDataLoading] = useState(true);
 
+  const { data, loading: feedLoading, error: feedError } = useProtectedRequest(
+    () => api.get(API_ENDPOINTS.FOOD.FOLLOWED),
+    [authLoading, isAuthenticated]
+  );
   useEffect(() => {
-        if (!authLoading && isAuthenticated) {
-      setDataLoading(true);
-      axios.get(`${API_BASE_URL}/api/food/followed`, { withCredentials: true })
-        .then(response => {
-          const feedItems = response.data.foodItems;
-                    if (feedItems.length > 0) {
-            setVideos([...feedItems, { _id: 'caught-up', isCaughtUp: true }]);
-          } else {
-            setVideos(feedItems);
-          }
-        })
-        .catch((error) => {
-          console.error('Error fetching followed feed:', error);
-        })
-        .finally(() => {
-          setDataLoading(false);
-        });
+    if (!authLoading && isAuthenticated && data) {
+      const feedItems = data?.data || [];
+      if (feedItems.length > 0) {
+        setVideos([...feedItems, { _id: 'caught-up', isCaughtUp: true }]);
+      } else {
+        setVideos(feedItems);
+      }
+      setDataLoading(false);
     }
-  }, [authLoading, isAuthenticated]);
+  }, [authLoading, isAuthenticated, data]);
 
   async function likeVideo(item) {
-    const response = await axios.post(`${API_BASE_URL}/api/food/like`, { foodId: item._id }, { withCredentials: true });
-    if (response.data.like) {
+    const { data } = await useProtectedRequest(
+      () => api.post(API_ENDPOINTS.FOOD.LIKE, { foodId: item._id }),
+      []
+    );
+    if (data) {
       setVideos(prev => prev.map(v => v._id === item._id ? { ...v, likeCount: v.likeCount + 1, isLiked: true } : v));
     } else {
       setVideos(prev => prev.map(v => v._id === item._id ? { ...v, likeCount: v.likeCount - 1, isLiked: false } : v));
@@ -44,8 +44,11 @@ const UserHome = () => {
   }
 
   async function saveVideo(item) {
-    const response = await axios.post(`${API_BASE_URL}/api/food/save`, { foodId: item._id }, { withCredentials: true });
-    if (response.data.save) {
+    const { data } = await useProtectedRequest(
+      () => api.post(API_ENDPOINTS.FOOD.SAVE, { foodId: item._id }),
+      []
+    );
+    if (data) {
       setVideos(prev => prev.map(v => v._id === item._id ? { ...v, savesCount: v.savesCount + 1 } : v));
     } else {
       setVideos(prev => prev.map(v => v._id === item._id ? { ...v, savesCount: v.savesCount - 1 } : v));

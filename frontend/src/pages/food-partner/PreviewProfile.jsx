@@ -59,8 +59,8 @@ import ShareModal from '../../components/ShareModal';
 import '../../styles/custom-dropdown.css';
 import '../../styles/profile.css';
 import '../../styles/meal-card.css';
-import axios from 'axios';
-import { API_BASE_URL } from '../../config';
+import { API_ENDPOINTS } from '../../constants';
+import api from '../../services/api';
 
 
 const buttonRowStyle = {
@@ -143,11 +143,24 @@ const PreviewProfile = () => {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    axios.get(`${API_BASE_URL}/api/food-partner`, { withCredentials: true })
-      .then(response => {
-        setProfile(response.data.foodPartner);
-        setVideos(response.data.foodPartner.foodItems || []);
-      });
+    const fetchProfile = async () => {
+      try {
+        const response = await api.get(API_ENDPOINTS.FOOD_PARTNER.BASE);
+        // Defensive: check for correct structure, fallback to empty
+        const profileData = response?.data?.data || {};
+        setProfile(profileData);
+        setVideos(Array.isArray(profileData.foodItems) ? profileData.foodItems : []);
+      } catch (error) {
+        setProfile(null);
+        setVideos([]);
+        if (error?.response?.data?.message) {
+          alert('Error: ' + error.response.data.message);
+        } else {
+          alert('Error loading food partner profile. Please try again.');
+        }
+      }
+    };
+    fetchProfile();
   }, []);
 
   // Sorted meals - must be called before any early returns
@@ -208,6 +221,9 @@ const PreviewProfile = () => {
     }
   };
 
+  if (profile === null) {
+    return <div style={{color:'var(--color-accent)',padding:32}}>Failed to load profile. Please try again later.</div>;
+  }
   if (!profile) return <div style={{color:'var(--color-text)',padding:32}}>Loading...</div>;
 
   return (
