@@ -8,7 +8,9 @@ function connectDB() {
             console.log("MongoDB connected");
         })
         .catch((err) => {
-            console.log("MongoDB connection error:", err);
+            // Use AppError for professional error handling
+            const AppError = require('../utils/AppError');
+            throw new AppError("MongoDB connection error: " + err.message, 500);
         })
 }
 
