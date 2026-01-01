@@ -1,0 +1,6 @@
+# Ignore dependencies and cache
+node_modules/
+.cache/
+.env
+.DS_Store
+coverage/
