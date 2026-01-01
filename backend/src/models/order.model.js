@@ -1,22 +1,28 @@
 const mongoose = require('mongoose');
 
 const orderSchema = new mongoose.Schema({
-    foodName: {
-      type: String,
-      required: true,
-    },
-    foodPartnerName: {
-      type: String,
-      required: true,
-    },
-      foodPartner: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'foodpartner',
-        required: true,
-      },
+  foodName: {
+    type: String,
+    required: true,
+    trim: true,
+    maxlength: 100
+  },
+  foodPartnerName: {
+    type: String,
+    required: true,
+    trim: true,
+    maxlength: 100
+  },
+  foodPartner: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'foodpartner',
+    required: true,
+  },
   userName: {
     type: String,
     required: true,
+    trim: true,
+    maxlength: 50
   },
   user: {
     type: mongoose.Schema.Types.ObjectId,
@@ -36,10 +42,13 @@ const orderSchema = new mongoose.Schema({
   totalPrice: {
     type: Number,
     required: true,
+    min: 0
   },
   deliveryAddress: {
     type: String,
     required: true,
+    trim: true,
+    maxlength: 200
   },
   status: {
     type: String,
