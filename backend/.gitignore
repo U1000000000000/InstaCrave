@@ -1,0 +1,16 @@
+# Node modules and build output
+node_modules/
+coverage/
+.env
+.env.*
+.DS_Store
+npm-debug.log*
+logs/
+*.log
+
+# Test output
+*.lcov
+
+# Editor files
+.vscode/
+.idea/
