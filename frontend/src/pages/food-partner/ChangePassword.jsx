@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import { API_BASE_URL } from '../../config';
+import { API_ENDPOINTS } from '../../constants';
+import api from '../../services/api';
 
 const ChangePassword = () => {
   const [password, setPassword] = useState('');
@@ -25,7 +25,7 @@ const ChangePassword = () => {
     }
     setLoading(true);
     try {
-      await axios.patch(`${API_BASE_URL}/api/food-partner/edit`, { password }, { withCredentials: true });
+      await api.patch(`${API_ENDPOINTS.FOOD_PARTNER.BASE}/edit`, { password });
       setSuccess('Password changed successfully!');
       setTimeout(() => navigate(-1), 1200);
     } catch (err) {

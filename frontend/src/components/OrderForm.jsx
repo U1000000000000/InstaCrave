@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import axios from 'axios';
-import { API_BASE_URL } from '../config';
+import api from '../services/api';
 import { API_ENDPOINTS } from '../constants';
 
 const OrderForm = ({ food, onClose, onOrderPlaced }) => {
@@ -17,20 +16,31 @@ const OrderForm = ({ food, onClose, onOrderPlaced }) => {
     setLoading(true);
     setError('');
     try {
-      const res = await axios.post(`${API_BASE_URL}${API_ENDPOINTS.ORDERS.CREATE}`, {
+      const res = await api.post(API_ENDPOINTS.ORDERS.CREATE, {
         foodId: food._id,
         quantity,
         deliveryAddress,
-      }, { withCredentials: true });
-      setSuccess(true);
-      onOrderPlaced && onOrderPlaced();
-      setTimeout(() => {
+      });
+      if (res?.data?.data) {
+        setSuccess(true);
+        onOrderPlaced && onOrderPlaced();
+        setTimeout(() => {
+          setSuccess(false);
+          onClose();
+        }, 1500);
+      } else {
         setSuccess(false);
-        onClose();
-      }, 1500);
+        setError(res?.data?.message || 'Failed to place order. Please try again.');
+      }
     } catch (err) {
       setSuccess(false);
-      setError(err?.response?.data?.message || 'Failed to place order. Please try again.');
+      if (err?.response?.data?.message) {
+        setError(err.response.data.message);
+      } else if (err?.message) {
+        setError('Error: ' + err.message);
+      } else {
+        setError('Failed to place order. Please try again.');
+      }
     } finally {
       setLoading(false);
     }

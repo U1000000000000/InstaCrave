@@ -1,32 +1,39 @@
-import React, { useEffect, useState } from 'react';
-import axios from 'axios';
-import { API_BASE_URL } from '../../config';
+import React from 'react';
+import { API_ENDPOINTS } from '../../constants';
+import api from '../../services/api';
+import { useProtectedRequest } from '../../hooks/useProtectedRequest';
+
 
 const PartnerOrders = () => {
-  const [orders, setOrders] = useState([]);
-
-  useEffect(() => {
-    fetchOrders();
-  }, []);
-
-  const fetchOrders = async () => {
-    try {
-      const res = await axios.get(`${API_BASE_URL}/api/orders/partner`, { withCredentials: true });
-      setOrders(res.data.orders);
-    } catch (error) {
-      console.error('Error fetching partner orders');
-    }
-  };
+  const { data, loading, error, refetch } = useProtectedRequest(
+    () => api.get(API_ENDPOINTS.ORDERS.PARTNER_ORDERS),
+    []
+  );
+  let orders = [];
+  if (Array.isArray(data?.data)) {
+    orders = data.data;
+  } else if (Array.isArray(data?.data?.orders)) {
+    orders = data.data.orders;
+  }
 
   const handleStatusChange = async (orderId, status) => {
     try {
-      await axios.put(`${API_BASE_URL}/api/orders/${orderId}/status`, { status }, { withCredentials: true });
-      fetchOrders();
+      const res = await api.put(`/api/v1/orders/${orderId}/status`, { status });
+      if (res?.data?.message) {
+        alert(res.data.message);
+      }
+      refetch();
     } catch (error) {
-      alert('Error updating order status');
+      if (error?.response?.data?.message) {
+        alert('Error: ' + error.response.data.message);
+      } else {
+        alert('Error updating order status. Please try again.');
+      }
     }
   };
 
+  if (loading) return <div>Loading orders...</div>;
+  if (error) return <div>Error loading orders.</div>;
   return (
     <div>
       <h2>Incoming Orders</h2>

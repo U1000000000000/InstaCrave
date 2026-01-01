@@ -1,13 +1,14 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { FaArrowRight } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
-import { API_BASE_URL } from '../../config';
+import { API_ENDPOINTS } from '../../constants';
 import { ROUTES } from '../../constants';
 import '../../styles/profile.css';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import { applyTheme } from '../../utils/helpers';
 import { useAuth } from '../../context/AuthContext';
+import api from '../../services/api';
+import { useProtectedRequest } from '../../hooks/useProtectedRequest';
 
 function useMealCardHoverStyle() {
   useEffect(() => {
@@ -29,8 +30,11 @@ const FoodPartnerProfile = () => {
   const navigate = useNavigate();
   const { logout } = useAuth();
   
-  const [profile, setProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const { data: profileData, loading, error: fetchError, refetch } = useProtectedRequest(
+    () => api.get(API_ENDPOINTS.FOOD_PARTNER.BASE),
+    []
+  );
+  const profile = profileData?.data || {};
   const [activeTab, setActiveTab] = useState('about');
     const aboutRef = useRef(null);
   const followersRef = useRef(null);
@@ -40,27 +44,17 @@ const FoodPartnerProfile = () => {
   const [editField, setEditField] = useState(null);
   const [editValue, setEditValue] = useState('');
   const [editLoading, setEditLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [editError, setEditError] = useState('');
   const [menuOpen, setMenuOpen] = useState('');   const fileInputRef = useRef();
   const inputRef = useRef();
   useMealCardHoverStyle();
 
-  const fetchProfile = () => {
-    axios.get(`${API_BASE_URL}/api/food-partner`, { withCredentials: true })
-      .then(response => {
-        setProfile(response.data.foodPartner);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
-  };
-  useEffect(() => {
-    fetchProfile();
-  }, []);
+
 
   const handleEdit = (field, value) => {
     setEditField(field);
     setEditValue(value || '');
-    setError('');
+    setEditError('');
     setMenuOpen('');
     setTimeout(() => {
       if (inputRef.current) inputRef.current.focus();
@@ -76,20 +70,19 @@ const FoodPartnerProfile = () => {
         if (!file) throw new Error('No file selected');
         const formData = new FormData();
         formData.append('profile', file);
-        await axios.patch(`${API_BASE_URL}/api/food-partner/edit`, formData, {
-          withCredentials: true,
+        await api.patch(`${API_ENDPOINTS.FOOD_PARTNER.BASE}/edit`, formData, {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
       } else {
-        await axios.patch(`${API_BASE_URL}/api/food-partner/edit`, {
+        await api.patch(`${API_ENDPOINTS.FOOD_PARTNER.BASE}/edit`, {
           [editField]: editValue
-        }, { withCredentials: true });
+        });
       }
       setEditField(null);
       setEditValue('');
-      fetchProfile();
+      refetch();
     } catch (err) {
-      setError(err?.response?.data?.message || err.message || 'Error updating');
+      setEditError(err?.response?.data?.message || err.message || 'Error updating');
     }
     setEditLoading(false);
   };
@@ -168,6 +161,12 @@ const FoodPartnerProfile = () => {
   }, [activeTab, profile]);
 
   if (loading) return <LoadingSpinner fullScreen color="accent" />;
+  if (fetchError) return (
+    <div className="empty-state">
+      <div className="empty-state-icon">❌</div>
+      <p>Error loading profile.</p>
+    </div>
+  );
   if (!profile) return (
     <div className="empty-state">
       <div className="empty-state-icon">🍽️</div>
@@ -482,9 +481,31 @@ const FoodPartnerProfile = () => {
             <button
               style={{
                 width:'100%',
-                background:'#E23747',
+                background:'var(--color-surface)',
+                color:'var(--color-accent)',
+                border:'1.5px solid var(--color-accent)',
+                borderRadius:12,
+                padding:'18px',
+                fontWeight:700,
+                fontSize:'1.13rem',
+                marginBottom:'8px',
+                marginTop:0,
+                boxShadow:'var(--shadow-sm)',
+                cursor:'pointer',
+                textAlign:'left',
+                transition:'background 0.18s,border 0.18s,color 0.18s',
+                outline:'none',
+              }}
+              onClick={()=>navigate('/food-partner/sessions')}
+            >
+              Sessions
+            </button>
+            <button
+              style={{
+                width:'100%',
+                background:'var(--color-accent)',
                 color:'#fff',
-                border:'1.5px solid #E23747',
+                border:'1.5px solid var(--color-accent)',
                 borderRadius:12,
                 padding:'18px',
                 fontWeight:700,
@@ -511,7 +532,7 @@ const FoodPartnerProfile = () => {
             >
               Logout
             </button>
-            {error && <div style={{color:'#E23747',marginTop:8,fontWeight:600}}>{error}</div>}
+            {editError && <div style={{color:'#E23747',marginTop:8,fontWeight:600}}>{editError}</div>}
           </div>
         )}
         {activeTab === 'meals' && (

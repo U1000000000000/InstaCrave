@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import '../../styles/auth-shared.css';
 import { authApi } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 import { ROUTES } from '../../constants';
 import LoadingSpinner from '../../components/LoadingSpinner';
 
@@ -9,6 +10,7 @@ const UserRegister = () => {
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const navigate = useNavigate();
+    const { login } = useAuth();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -19,7 +21,7 @@ const UserRegister = () => {
         const email = e.target.email.value.trim();
         const password = e.target.password.value;
 
-                if (!firstName || !lastName || !email || !password) {
+        if (!firstName || !lastName || !email || !password) {
             setError('Please fill in all fields.');
             return;
         }
@@ -36,17 +38,14 @@ const UserRegister = () => {
 
         setIsLoading(true);
         try {
-            const response = await authApi.registerUser({
+            await authApi.registerUser({
                 fullName: `${firstName} ${lastName}`,
                 email,
                 password
             });
-
-                        if (response.data.user?._id) {
-                localStorage.setItem('userId', response.data.user._id);
-            }
-
-                        window.location.href = ROUTES.GENERAL.HOME;
+            // After registration, log in the user
+            await login({ email, password }, 'USER');
+            navigate(ROUTES.GENERAL.HOME, { replace: true });
         } catch (err) {
             setError(err.response?.data?.message || 'Registration failed. Please try again.');
         } finally {

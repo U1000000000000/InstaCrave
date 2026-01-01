@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import { useProtectedRequest } from '../../hooks/useProtectedRequest';
+import api from '../../services/api';
 import '../../styles/reels.css';
 import ReelFeed from '../../components/ReelFeed';
 import { API_BASE_URL } from '../../config';
+import { API_ENDPOINTS } from '../../constants';
 import { useAuth } from '../../context/AuthContext';
 import LoadingSpinner from '../../components/LoadingSpinner';
 
@@ -22,28 +24,25 @@ const UserReels = () => {
     return arr;
   };
 
+  const { data, loading: reelsLoading, error: reelsError } = useProtectedRequest(
+    () => api.get(API_ENDPOINTS.FOOD.BASE),
+    [authLoading, isAuthenticated]
+  );
   useEffect(() => {
-        if (!authLoading && isAuthenticated) {
-      setDataLoading(true);
-      axios.get(`${API_BASE_URL}/api/food`, { withCredentials: true })
-        .then(response => {
-                    const shuffledReels = shuffleArray(response.data.foodItems || []);
-          setVideos(shuffledReels);
-          setFetchError(false);
-        })
-        .catch((error) => {
-          console.error('Error fetching reels:', error);
-          setFetchError(true);
-        })
-        .finally(() => {
-          setDataLoading(false);
-        });
+    if (!authLoading && isAuthenticated && data) {
+      const shuffledReels = shuffleArray(data?.data || []);
+      setVideos(shuffledReels);
+      setFetchError(false);
+      setDataLoading(false);
     }
-  }, [authLoading, isAuthenticated]);
+  }, [authLoading, isAuthenticated, data]);
 
   async function likeVideo(item) {
-    const response = await axios.post(`${API_BASE_URL}/api/food/like`, { foodId: item._id }, { withCredentials: true });
-    if (response.data.like) {
+    const { data } = await useProtectedRequest(
+      () => api.post(API_ENDPOINTS.FOOD.LIKE, { foodId: item._id }),
+      []
+    );
+    if (data) {
       setVideos(prev => prev.map(v => v._id === item._id ? { ...v, likeCount: v.likeCount + 1, isLiked: true } : v));
     } else {
       setVideos(prev => prev.map(v => v._id === item._id ? { ...v, likeCount: v.likeCount - 1, isLiked: false } : v));
@@ -51,8 +50,11 @@ const UserReels = () => {
   }
 
   async function saveVideo(item) {
-    const response = await axios.post(`${API_BASE_URL}/api/food/save`, { foodId: item._id }, { withCredentials: true });
-    if (response.data.save) {
+    const { data } = await useProtectedRequest(
+      () => api.post(API_ENDPOINTS.FOOD.SAVE, { foodId: item._id }),
+      []
+    );
+    if (data) {
       setVideos(prev => prev.map(v => v._id === item._id ? { ...v, savesCount: v.savesCount + 1 } : v));
     } else {
       setVideos(prev => prev.map(v => v._id === item._id ? { ...v, savesCount: v.savesCount - 1 } : v));

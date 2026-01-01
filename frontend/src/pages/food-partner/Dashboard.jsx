@@ -1,16 +1,43 @@
-import React, { useEffect, useState } from 'react';
-import axios from 'axios';
-import { API_BASE_URL } from '../../config';
+  // Delete food item using api.js abstraction
+  const handleDeleteFood = async (foodId) => {
+    try {
+      await api.delete(`${API_ENDPOINTS.FOOD.BASE}/${foodId}`);
+      refetchFood();
+    } catch (error) {
+      alert('Error deleting food item');
+    }
+  };
+import React, { useState, useEffect } from 'react';
+import { API_ENDPOINTS } from '../../constants';
 import { useNavigate } from 'react-router-dom';
 import '../../styles/profile.css';
 import ConfirmModal from '../../components/ConfirmModal';
+import api from '../../services/api';
+import { useProtectedRequest } from '../../hooks/useProtectedRequest';
 
 const FINAL_STATES = ['delivered', 'cancelled'];
 const ACTIVE_STATES = ['pending', 'confirmed', 'preparing', 'ready'];
 
 const Dashboard = () => {
-  const [foodItems, setFoodItems] = useState([]);
-  const [orders, setOrders] = useState([]);
+  // Fetch food items and orders using useProtectedRequest
+  const { data: foodPartnerData, loading: foodLoading, error: foodError, refetch: refetchFood } = useProtectedRequest(
+    () => api.get(API_ENDPOINTS.FOOD_PARTNER.BASE),
+    []
+  );
+  const { data: ordersData, loading: ordersLoading, error: ordersError, refetch: refetchOrders } = useProtectedRequest(
+    () => api.get(API_ENDPOINTS.ORDERS.PARTNER_ORDERS),
+    []
+  );
+  // Defensive: check for correct structure, fallback to empty array
+  const foodItems = Array.isArray(foodPartnerData?.data?.foodPartner?.foodItems)
+    ? foodPartnerData.data.foodPartner.foodItems
+    : (Array.isArray(foodPartnerData?.data?.foodItems) ? foodPartnerData.data.foodItems : []);
+  let orders = [];
+  if (Array.isArray(ordersData?.data)) {
+    orders = ordersData.data;
+  } else if (Array.isArray(ordersData?.data?.orders)) {
+    orders = ordersData.data.orders;
+  }
   const [activeTab, setActiveTab] = useState('orders');
   const [orderFilter, setOrderFilter] = useState('current');
   const [statusFilter, setStatusFilter] = useState('all'); // Filter by specific status
@@ -19,12 +46,7 @@ const Dashboard = () => {
   const [openDropdownOrderId, setOpenDropdownOrderId] = useState(null); // for status dropdown
   const navigate = useNavigate();
 
-  useEffect(() => {
-    fetchData();
-    // Poll for new orders every 10 seconds
-    const interval = setInterval(fetchData, 10000);
-    return () => clearInterval(interval);
-  }, []);
+  // No useEffect for fetchData, handled by useProtectedRequest
 
   // Remove the effect that switches to food-items when foodItems is empty
 
@@ -40,40 +62,29 @@ const Dashboard = () => {
     setStatusFilter('all');
   }, [orderFilter]);
 
-  const fetchData = async () => {
-    try {
-      const [foodRes, ordersRes] = await Promise.all([
-        axios.get(`${API_BASE_URL}/api/food-partner`, { withCredentials: true }),
-        axios.get(`${API_BASE_URL}/api/orders/partner`, { withCredentials: true })
-      ]);
-      setFoodItems(foodRes.data.foodPartner.foodItems || []);
-      setOrders(ordersRes.data.orders || []);
-    } catch (error) {
-      console.error('Error fetching dashboard data');
-    }
-  };
 
-  const handleStatusChange = (orderId, status) => {
+  const handleStatusChange = async (orderId, status) => {
     if (FINAL_STATES.includes(status)) {
       setPendingStatusChange({ orderId, status });
       setModalOpen(true);
     } else {
-      updateOrderStatus(orderId, status);
+      try {
+        await api.patch(`${API_ENDPOINTS.ORDERS.BASE}/${orderId}/status`, { status });
+        refetchOrders();
+      } catch (error) {
+        alert('Error updating order status');
+      }
     }
   };
 
-  const updateOrderStatus = async (orderId, status) => {
-    try {
-      await axios.put(`${API_BASE_URL}/api/orders/${orderId}/status`, { status }, { withCredentials: true });
-      fetchData();
-    } catch (error) {
-      alert('Error updating order status');
-    }
-  };
-
-  const confirmFinalState = () => {
+  const confirmFinalState = async () => {
     if (pendingStatusChange) {
-      updateOrderStatus(pendingStatusChange.orderId, pendingStatusChange.status);
+      try {
+        await api.patch(`${API_ENDPOINTS.ORDERS.BASE}/${pendingStatusChange.orderId}/status`, { status: pendingStatusChange.status });
+        refetchOrders();
+      } catch (error) {
+        alert('Error updating order status');
+      }
       setModalOpen(false);
       setPendingStatusChange(null);
     }

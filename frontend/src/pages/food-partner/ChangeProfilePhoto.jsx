@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
-import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import { API_BASE_URL } from '../../config';
+import { API_ENDPOINTS } from '../../constants';
+import api from '../../services/api';
 
 const ChangeProfilePhoto = () => {
   const [preview, setPreview] = useState(null);
@@ -33,12 +33,15 @@ const ChangeProfilePhoto = () => {
     try {
       const formData = new FormData();
       formData.append('profile', file);
-      await axios.patch(`${API_BASE_URL}/api/food-partner/edit`, formData, {
-        withCredentials: true,
+      const res = await api.patch(`${API_ENDPOINTS.FOOD_PARTNER.BASE}/edit`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-      setSuccess('Profile photo updated!');
-      setTimeout(() => navigate(-1), 1200);
+      if (res.data?.data) {
+        setSuccess('Profile photo updated!');
+        setTimeout(() => navigate(-1), 1200);
+      } else {
+        setError(res.data?.message || 'Error updating photo.');
+      }
     } catch (err) {
       setError(err?.response?.data?.message || 'Error updating photo.');
     }

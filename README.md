@@ -46,6 +46,16 @@ npm run build
 npm run preview
 ```
 
+## Security & Data Validation
+
+- **Input Sanitization:** All user-facing text fields (names, descriptions, comments, addresses, etc.) are sanitized using `sanitize-html` at both the controller and validation (Joi) layer. Global input sanitization is enforced using `xss-clean` middleware in the backend.
+- **File Upload Security:** Only `video/mp4`, `image/jpeg`, and `image/png` files are accepted, with a maximum size of 10MB. File signature/content is checked after upload to prevent spoofing.
+- **Validation Layer:** All incoming data is validated and sanitized with Joi schemas and `.custom()` hooks.
+- **Error Handling:** All validation and sanitization errors are handled by a centralized error middleware for consistent API responses.
+- **Contributor Security Notes:** Always validate and sanitize user input. Use the provided `sanitize.js` utility in Joi schemas for all user-facing strings. For new file upload endpoints, use the existing `fileUpload.middleware.js` and always check file type and signature. Review and update sanitization rules regularly as new threats emerge.
+
+See `backend/SECURITY.md` for more details.
+
 ## Project Structure
 
 ```

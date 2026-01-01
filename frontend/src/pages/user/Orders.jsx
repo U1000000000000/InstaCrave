@@ -1,6 +1,7 @@
 
 import React, { useEffect, useState, useRef } from 'react';
-import axios from 'axios';
+import { useProtectedRequest } from '../../hooks/useProtectedRequest';
+import api from '../../services/api';
 import { API_BASE_URL } from '../../config';
 import { API_ENDPOINTS } from '../../constants';
 import '../../styles/profile.css';
@@ -16,9 +17,19 @@ const Orders = () => {
   const pastRef = useRef(null);
   const [underline, setUnderline] = useState({ left: 0, width: 0 });
 
+  const { data, loading: ordersLoading, error: ordersError } = useProtectedRequest(
+    () => api.get(API_ENDPOINTS.ORDERS.USER_ORDERS),
+    []
+  );
   useEffect(() => {
-    fetchOrders();
-  }, []);
+    let ordersArr = [];
+    if (Array.isArray(data?.data)) {
+      ordersArr = data.data;
+    } else if (Array.isArray(data?.data?.orders)) {
+      ordersArr = data.data.orders;
+    }
+    setOrders(ordersArr);
+  }, [data]);
 
   useEffect(() => {
     const updateUnderline = () => {
@@ -46,9 +57,21 @@ const Orders = () => {
   const fetchOrders = async () => {
     try {
       const res = await axios.get(`${API_BASE_URL}${API_ENDPOINTS.ORDERS.USER_ORDERS}`, { withCredentials: true });
-      setOrders(res.data.orders);
+      let ordersArr = [];
+      if (Array.isArray(res?.data?.data)) {
+        ordersArr = res.data.data;
+      } else if (Array.isArray(res?.data?.data?.orders)) {
+        ordersArr = res.data.data.orders;
+      }
+      setOrders(ordersArr);
     } catch (error) {
-      console.error('Error fetching orders');
+      setOrders([]);
+      if (error?.response?.data?.message) {
+        alert('Error: ' + error.response.data.message);
+      } else {
+        alert('Error fetching orders. Please try again.');
+      }
+      console.error('Error fetching orders', error);
     }
   };
 
