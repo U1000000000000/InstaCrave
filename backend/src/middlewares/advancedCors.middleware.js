@@ -9,10 +9,13 @@ const allowedOrigins = [
     process.env.FRONTEND_URL,
     process.env.FRONTEND_URL_LOCAL,
     // Add more trusted origins as needed
-];
+].filter(Boolean).map(origin => origin.trim()); // Remove undefined/null and trim whitespace
+
+// Log allowed origins on startup
+logger.info('CORS allowed origins:', { allowedOrigins });
 
 function isOriginAllowed(origin) {
-    if (!origin) return false;
+    if (!origin) return true; // Allow requests without origin (e.g., same-origin, curl, postman)
     return allowedOrigins.some((allowed) => {
         if (!allowed) return false;
         // Support wildcards (e.g., https://*.trusted.com)
