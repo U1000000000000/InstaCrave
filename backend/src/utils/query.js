@@ -1,5 +1,5 @@
 // backend/src/utils/query.js
-// Advanced query utility for pagination, filtering, and sorting
+// Query utility for pagination, filtering, and sorting
 
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 100;

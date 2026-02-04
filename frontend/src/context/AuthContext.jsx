@@ -54,6 +54,8 @@ export const AuthProvider = ({ children }) => {
       await authApi.loginUser(credentials.email, credentials.password);
     }
     await checkAuth();
+    // Notify WebSocket to reconnect with new auth state
+    window.dispatchEvent(new Event('auth-state-changed'));
   };
 
   // Compatibility: loading and isAuthenticated
@@ -68,6 +70,8 @@ export const AuthProvider = ({ children }) => {
       setUser(null);
       setUserType(null);
       setStatus('unauthenticated');
+      // Notify WebSocket to disconnect
+      window.dispatchEvent(new Event('auth-state-changed'));
     }
   };
 

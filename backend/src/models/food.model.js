@@ -56,6 +56,9 @@ const foodSchema = new mongoose.Schema({
     timestamps: true 
 });
 
+// ===== INDEXES =====
+foodSchema.index({ foodPartner: 1, isOrderable: 1 });
+
 const foodModel = mongoose.model("food", foodSchema);
 
 module.exports = foodModel;

@@ -4,14 +4,18 @@ const argon2 = require("argon2");
 const jwt = require("jsonwebtoken");
 const tokenService = require("../services/token.service");
 const Session = require("../models/session.model");
-const audit = require("../services/audit.service");
 const userAgentParser = require("ua-parser-js");
 const storageService = require("../services/storage.service");
-const { v4: uuid } = require("uuid");
+const { uuidv4: uuid } = require("../utils/uuid");
 
 const AppError = require("../utils/AppError");
 const catchAsync = require("../utils/catchAsync");
 const responseUtil = require("../utils/response");
+const logger = require('../services/logger.service');
+
+// Background job queue imports
+const { addEmailJob, addAnalyticsJob, JOB_TYPES } = require('../queue/index');
+
 const getAccessCookieOptions = () => ({
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",
@@ -56,18 +60,37 @@ const registerUser = catchAsync(async (req, res) => {
   res.cookie("accessToken", accessToken, getAccessCookieOptions());
   res.cookie("refreshToken", refreshToken, getRefreshCookieOptions());
   res.cookie("sessionId", session._id.toString(), {
-    httpOnly: false, // must be readable by frontend for refresh
+    httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "strict",
     maxAge: 30 * 24 * 60 * 60 * 1000,
     path: "/",
   });
-  audit.logEvent("registerUser", {
-    userId: user._id,
-    userType: "User",
-    userAgent,
-    ip,
-  });
+  
+  // Send welcome email in background (non-blocking)
+  try {
+    await addEmailJob(JOB_TYPES.SEND_WELCOME_EMAIL, {
+      to: user.email,
+      userName: user.fullName,
+    });
+    
+    // Track user registration for analytics
+    await addAnalyticsJob(JOB_TYPES.TRACK_USER_ACTION, {
+      userId: user._id.toString(),
+      action: 'user_registered',
+      metadata: {
+        userType: 'User',
+        registrationDate: new Date().toISOString(),
+      },
+    });
+  } catch (jobError) {
+    logger.error('Failed to queue welcome email job', {
+      error: jobError.message,
+      userId: user._id.toString(),
+      email: user.email,
+    });
+  }
+  
   responseUtil.sendItemResponse(res, {
     data: {
       _id: user._id,
@@ -101,17 +124,11 @@ const loginUser = catchAsync(async (req, res) => {
   res.cookie("accessToken", accessToken, getAccessCookieOptions());
   res.cookie("refreshToken", refreshToken, getRefreshCookieOptions());
   res.cookie("sessionId", session._id.toString(), {
-    httpOnly: false, // must be readable by frontend for refresh
+    httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "strict",
     maxAge: 30 * 24 * 60 * 60 * 1000,
     path: "/",
-  });
-  audit.logEvent("loginUser", {
-    userId: user._id,
-    userType: "User",
-    userAgent,
-    ip,
   });
   responseUtil.sendItemResponse(res, {
     data: {
@@ -124,30 +141,39 @@ const loginUser = catchAsync(async (req, res) => {
 });
 
 const logoutUser = catchAsync(async (req, res) => {
+  const sessionId = req.cookies.sessionId;
   const refreshToken = req.cookies.refreshToken;
-  const userAgent = req.headers["user-agent"] || "";
-  const ip = req.ip;
-  if (refreshToken) {
-    const sessions = await Session.find({ userAgent, ip });
-    for (const session of sessions) {
-      const isMatch = await tokenService.compareRefreshToken(
-        refreshToken,
-        session.tokenHash
-      );
-      if (isMatch) {
-        await session.deleteOne();
-        audit.logEvent("logoutUser", {
-          userId: session.userId,
-          userType: "User",
-          userAgent,
-          ip,
-          sessionId: session._id,
-        });
+  
+  // Use sessionId for direct lookup (much faster)
+  if (sessionId && refreshToken) {
+    try {
+      const session = await Session.findById(sessionId);
+      if (session) {
+        const isMatch = await tokenService.compareRefreshToken(
+          refreshToken,
+          session.tokenHash
+        );
+        if (isMatch) {
+          await session.deleteOne();
+        }
       }
+    } catch (error) {
+      // Session not found or already deleted, continue with logout
+      logger.debug('Session cleanup error during user logout', {
+        error: error.message,
+        userId: req.user?.id,
+      });
     }
   }
+  
   res.clearCookie("accessToken", getAccessCookieOptions());
   res.clearCookie("refreshToken", getRefreshCookieOptions());
+  res.clearCookie("sessionId", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+    path: "/",
+  });
   responseUtil.sendItemResponse(res, {
     data: null,
     message: "User logged out successfully",
@@ -198,17 +224,11 @@ const registerFoodPartner = catchAsync(async (req, res) => {
   res.cookie("accessToken", accessToken, getAccessCookieOptions());
   res.cookie("refreshToken", refreshToken, getRefreshCookieOptions());
   res.cookie("sessionId", session._id.toString(), {
-    httpOnly: false, // must be readable by frontend for refresh
+    httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "strict",
     maxAge: 30 * 24 * 60 * 60 * 1000,
     path: "/",
-  });
-  audit.logEvent("registerFoodPartner", {
-    userId: foodPartner._id,
-    userType: "FoodPartner",
-    userAgent,
-    ip,
   });
   responseUtil.sendItemResponse(res, {
     data: {
@@ -247,17 +267,11 @@ const loginFoodPartner = catchAsync(async (req, res) => {
   res.cookie("accessToken", accessToken, getAccessCookieOptions());
   res.cookie("refreshToken", refreshToken, getRefreshCookieOptions());
   res.cookie("sessionId", session._id.toString(), {
-    httpOnly: false, // must be readable by frontend for refresh
+    httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "strict",
     maxAge: 30 * 24 * 60 * 60 * 1000,
     path: "/",
-  });
-  audit.logEvent("loginFoodPartner", {
-    userId: foodPartner._id,
-    userType: "FoodPartner",
-    userAgent,
-    ip,
   });
   responseUtil.sendItemResponse(res, {
     data: {
@@ -270,30 +284,39 @@ const loginFoodPartner = catchAsync(async (req, res) => {
 });
 
 const logoutFoodPartner = catchAsync(async (req, res) => {
+  const sessionId = req.cookies.sessionId;
   const refreshToken = req.cookies.refreshToken;
-  const userAgent = req.headers["user-agent"] || "";
-  const ip = req.ip;
-  if (refreshToken) {
-    const sessions = await Session.find({ userAgent, ip });
-    for (const session of sessions) {
-      const isMatch = await tokenService.compareRefreshToken(
-        refreshToken,
-        session.tokenHash
-      );
-      if (isMatch) {
-        await session.deleteOne();
-        audit.logEvent("logoutFoodPartner", {
-          userId: session.userId,
-          userType: "FoodPartner",
-          userAgent,
-          ip,
-          sessionId: session._id,
-        });
+  
+  // Use sessionId for direct lookup (much faster)
+  if (sessionId && refreshToken) {
+    try {
+      const session = await Session.findById(sessionId);
+      if (session) {
+        const isMatch = await tokenService.compareRefreshToken(
+          refreshToken,
+          session.tokenHash
+        );
+        if (isMatch) {
+          await session.deleteOne();
+        }
       }
+    } catch (error) {
+      // Session not found or already deleted, continue with logout
+      logger.debug('Session cleanup error during food partner logout', {
+        error: error.message,
+        partnerId: req.user?.id,
+      });
     }
   }
+  
   res.clearCookie("accessToken", getAccessCookieOptions());
   res.clearCookie("refreshToken", getRefreshCookieOptions());
+  res.clearCookie("sessionId", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+    path: "/",
+  });
   responseUtil.sendItemResponse(res, {
     data: null,
     message: "Food partner logged out successfully",
@@ -337,11 +360,6 @@ const refreshToken = catchAsync(async (req, res) => {
   const newAccessToken = tokenService.generateAccessToken(payload);
   res.cookie("accessToken", newAccessToken, getAccessCookieOptions());
   res.cookie("refreshToken", newRefreshToken, getRefreshCookieOptions());
-  audit.logEvent("refreshToken", {
-    userId: session.userId,
-    userType: session.userType,
-    sessionId: session._id,
-  });
   return responseUtil.sendItemResponse(res, {
     data: null,
     message: "Token refreshed successfully",
@@ -367,12 +385,12 @@ const getCurrentUser = catchAsync(async (req, res) => {
 // List active sessions for current user
 const listSessions = catchAsync(async (req, res) => {
   let userId, userType;
-  if (req.user) {
-    userId = req.user._id;
-    userType = "User";
-  } else if (req.foodPartner) {
+  if (req.foodPartner) {
     userId = req.foodPartner._id;
     userType = "FoodPartner";
+  } else if (req.user) {
+    userId = req.user._id;
+    userType = "User";
   } else {
     throw new AppError("Not authenticated", 401);
   }
@@ -388,12 +406,12 @@ const listSessions = catchAsync(async (req, res) => {
 // Revoke a session by sessionId (support both user and foodPartner)
 const revokeSession = catchAsync(async (req, res) => {
   let userId, userType;
-  if (req.user) {
-    userId = req.user._id;
-    userType = "User";
-  } else if (req.foodPartner) {
+  if (req.foodPartner) {
     userId = req.foodPartner._id;
     userType = "FoodPartner";
+  } else if (req.user) {
+    userId = req.user._id;
+    userType = "User";
   } else {
     throw new AppError("Not authenticated", 401);
   }
@@ -401,7 +419,6 @@ const revokeSession = catchAsync(async (req, res) => {
   const session = await Session.findOne({ _id: sessionId, userId, userType });
   if (!session) throw new AppError("Session not found", 404);
   await session.deleteOne();
-  audit.logEvent("revokeSession", { userId, userType, sessionId });
   return responseUtil.sendItemResponse(res, {
     data: null,
     message: "Session revoked successfully",

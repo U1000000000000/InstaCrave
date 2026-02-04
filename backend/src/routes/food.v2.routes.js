@@ -4,7 +4,12 @@ const foodController = require('../controllers/food.v2.controller');
 const authMiddleware = require('../middlewares/auth.middleware');
 const queryValidation = require('../middlewares/queryValidation.middleware');
 const { upload, validateFileSignature } = require('../middlewares/fileUpload.middleware');
+const validate = require('../middlewares/validate.middleware');
+const { createFoodSchema, updateFoodSchema } = require('../validation/food.validation');
+const { objectIdSchema, paginationQuerySchema, emptyQuerySchema, emptyParamsSchema, emptyBodySchema, foodIdParamsSchema } = require('../validation/common.validation');
+const { foodIdBodySchema, commentOnFoodSchema, deleteCommentSchema } = require('../validation/food-action.validation');
 
+const { cacheMiddleware, invalidateCache } = require('../middlewares/cache.middleware');
 const router = express.Router();
 
 /**
@@ -54,6 +59,11 @@ router.post(
   authMiddleware.authFoodPartnerMiddleware,
   upload.single('mama'),
   validateFileSignature,
+  validate({ body: createFoodSchema, query: emptyQuerySchema, params: emptyParamsSchema }),
+  invalidateCache(
+    '*:food:list:*',
+    (req) => `partner:${req.user._id}:*`
+  ),
   foodController.createFood
 );
 
@@ -119,7 +129,7 @@ router.post(
  *         description: Filter by orderable status
  *     responses:
  *       200:
- *         description: List of food items with advanced pagination/filter/sort
+ *         description: List of food items with pagination/filter/sort
  *         content:
  *           application/json:
  *             schema:
@@ -142,7 +152,12 @@ router.post(
  */
 router.get('/',
   authMiddleware.authUserMiddleware,
-  queryValidation,
+  queryValidation, 
+  validate({ body: emptyBodySchema, params: emptyParamsSchema }),
+  cacheMiddleware(300, req => {
+    const userId = req.user ? req.user._id : 'anon';
+    return `food:v2:list:user=${userId}:page=${req.query.page || 1}:limit=${req.query.limit || 10}:sort=${req.query.sort || ''}:category=${req.query.category || ''}:price=${req.query.price || ''}:name=${req.query.name || ''}:foodPartner=${req.query.foodPartner || ''}:isOrderable=${req.query.isOrderable || ''}`;
+  }),
   foodController.getFoodItems
 );
 
@@ -202,6 +217,12 @@ router.patch(
   authMiddleware.authFoodPartnerMiddleware,
   upload.single('mama'),
   validateFileSignature,
+  validate({ params: objectIdSchema, body: updateFoodSchema, query: emptyQuerySchema }),
+  invalidateCache(
+    (req) => `food:${req.params.id}:*`,
+    '*:food:list:*',
+    (req) => `partner:${req.user._id}:*`
+  ),
   foodController.editFood
 );
 
@@ -209,7 +230,7 @@ router.patch(
  * @swagger
  * /api/v2/food/followed:
  *   get:
- *     summary: Get food items from followed food partners (v2, advanced pagination/filter/sort)
+ *     summary: Get food items from followed food partners (with pagination/filter/sort)
  *     tags: [FoodV2]
  *     security:
  *       - bearerAuth: []
@@ -267,7 +288,7 @@ router.patch(
  *         description: Filter by orderable status
  *     responses:
  *       200:
- *         description: List of followed food items with advanced pagination/filter/sort
+ *         description: List of followed food items with pagination/filter/sort
  *         content:
  *           application/json:
  *             schema:
@@ -291,6 +312,15 @@ router.patch(
 router.get('/followed',
   authMiddleware.authUserMiddleware,
   queryValidation,
+  validate({ body: emptyBodySchema, params: emptyParamsSchema }),
+  cacheMiddleware(300, req => {
+    // Defensive: Handle case where req.user might not exist
+    if (!req.user || !req.user._id) {
+      return `user:anonymous:food:v2:followed:page=${req.query.page || 1}:limit=${req.query.limit || 10}:sort=${req.query.sort || ''}:category=${req.query.category || ''}:price=${req.query.price || ''}:name=${req.query.name || ''}:foodPartner=${req.query.foodPartner || ''}:isOrderable=${req.query.isOrderable || ''}`;
+    }
+    const userId = req.user._id;
+    return `user:${userId}:food:v2:followed:page=${req.query.page || 1}:limit=${req.query.limit || 10}:sort=${req.query.sort || ''}:category=${req.query.category || ''}:price=${req.query.price || ''}:name=${req.query.name || ''}:foodPartner=${req.query.foodPartner || ''}:isOrderable=${req.query.isOrderable || ''}`;
+  }),
   foodController.getFollowedFoodItems
 );
 
@@ -341,6 +371,19 @@ router.get('/followed',
  */
 router.post('/like',
   authMiddleware.authUserMiddleware,
+  validate({ body: foodIdBodySchema, query: emptyQuerySchema, params: emptyParamsSchema }),
+  invalidateCache(
+    // Clear specific food item cache
+    (req) => `food:${req.body.foodId}:*`,
+    // Clear acting user's caches
+    (req) => `user:${req.user._id}:*`,
+    // Clear all food list caches (all users may see updated like count)
+    '*:food:list:*',
+    '*:food:v2:list:*',
+    // Clear all followed food lists (like count may appear there)
+    'user:*:food:followed:*',
+    'user:*:food:v2:followed:*'
+  ),
   foodController.likeFood
 );
 
@@ -390,6 +433,16 @@ router.post('/like',
  */
 router.post('/save',
   authMiddleware.authUserMiddleware,
+  validate({ body: foodIdBodySchema, query: emptyQuerySchema, params: emptyParamsSchema }),
+  invalidateCache(
+    // Clear specific food item cache (save count may be displayed)
+    (req) => `food:${req.body.foodId}:*`,
+    // Clear acting user's caches
+    (req) => `user:${req.user._id}:*`,
+    // Clear all food list caches (save count may appear there)
+    '*:food:list:*',
+    '*:food:v2:list:*'
+  ),
   foodController.saveFood
 );
 
@@ -431,6 +484,14 @@ router.post('/save',
  */
 router.get('/save',
   authMiddleware.authUserMiddleware,
+  validate({ query: paginationQuerySchema, params: emptyParamsSchema, body: emptyBodySchema }),
+  cacheMiddleware(300, req => {
+    // Defensive: Handle case where req.user might not exist
+    if (!req.user || !req.user._id) {
+      return 'user:anonymous:food:v2:saved';
+    }
+    return `user:${req.user._id}:food:v2:saved:limit=${req.query.limit}:skip=${req.query.skip}`;
+  }),
   foodController.getSaveFood
 );
 
@@ -476,6 +537,19 @@ router.get('/save',
  */
 router.post('/comment',
   authMiddleware.authUserMiddleware,
+  validate({ body: commentOnFoodSchema, query: emptyQuerySchema, params: emptyParamsSchema }),
+  invalidateCache(
+    // Clear specific food item cache (includes comments)
+    (req) => `food:${req.body.foodId}:*`,
+    // Clear acting user's comment caches
+    (req) => `user:${req.user._id}:comments`,
+    // Clear all food list caches (comment count may appear there)
+    '*:food:list:*',
+    '*:food:v2:list:*',
+    // Clear all followed food lists (comment count may appear there)
+    'user:*:food:followed:*',
+    'user:*:food:v2:followed:*'
+  ),
   foodController.commentOnFood
 );
 
@@ -524,6 +598,8 @@ router.post('/comment',
  */
 router.get('/comment',
   authMiddleware.authUserMiddleware,
+  validate({ query: foodIdParamsSchema, body: emptyBodySchema, params: emptyParamsSchema }),
+  cacheMiddleware(180, req => `food:${req.query.foodId}:v2:comments`),
   foodController.getCommentOnFood
 );
 
@@ -572,6 +648,8 @@ router.get('/comment',
  */
 router.get('/comments',
   authMiddleware.authFoodPartnerMiddleware,
+  validate({ query: foodIdParamsSchema, body: emptyBodySchema, params: emptyParamsSchema }),
+  cacheMiddleware(180, req => `food:${req.query.foodId}:v2:comments`),
   foodController.getCommentOnFood
 );
 
@@ -619,6 +697,20 @@ router.get('/comments',
  */
 router.post('/delete-comment',
   authMiddleware.authUserMiddleware,
+  validate({ body: deleteCommentSchema, query: emptyQuerySchema, params: emptyParamsSchema }),
+  invalidateCache(
+    // Clear all food comments (we don't know which food without DB lookup)
+    'food:*:comments',
+    'food:*:v2:comments',
+    // Clear acting user's comment caches
+    (req) => `user:${req.user._id}:comments`,
+    // Clear all food list caches (comment count may appear there)
+    '*:food:list:*',
+    '*:food:v2:list:*',
+    // Clear all followed food lists (comment count may appear there)
+    'user:*:food:followed:*',
+    'user:*:food:v2:followed:*'
+  ),
   foodController.deleteCommentOnFood
 );
 
@@ -665,6 +757,12 @@ router.post('/delete-comment',
  */
 router.delete('/:foodId',
   authMiddleware.authFoodPartnerMiddleware,
+  validate({ params: foodIdParamsSchema }),
+  invalidateCache(
+    (req) => `food:${req.params.foodId}:*`,
+    '*:food:list:*',
+    (req) => `partner:${req.user._id}:*`
+  ),
   foodController.deleteFood
 );
 
@@ -712,6 +810,17 @@ router.delete('/:foodId',
  */
 router.post('/share',
   authMiddleware.authUserMiddleware,
+  validate({ body: foodIdBodySchema, query: emptyQuerySchema, params: emptyParamsSchema }),
+  invalidateCache(
+    // Clear specific food item cache (share count updated)
+    (req) => `food:${req.body.foodId}:*`,
+    // Clear all food list caches (share count may appear there)
+    '*:food:list:*',
+    '*:food:v2:list:*',
+    // Clear all followed food lists (share count may appear there)
+    'user:*:food:followed:*',
+    'user:*:food:v2:followed:*'
+  ),
   foodController.updateShareCount
 );
 

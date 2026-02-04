@@ -14,11 +14,14 @@ import '../../styles/profile.css';
 import ConfirmModal from '../../components/ConfirmModal';
 import api from '../../services/api';
 import { useProtectedRequest } from '../../hooks/useProtectedRequest';
+import { useWebSocket } from '../../context/WebSocketContext';
 
 const FINAL_STATES = ['delivered', 'cancelled'];
 const ACTIVE_STATES = ['pending', 'confirmed', 'preparing', 'ready'];
 
 const Dashboard = () => {
+  const { on: onWebSocketEvent, isConnected: wsConnected, connectionStatus } = useWebSocket();
+  
   // Fetch food items and orders using useProtectedRequest
   const { data: foodPartnerData, loading: foodLoading, error: foodError, refetch: refetchFood } = useProtectedRequest(
     () => api.get(API_ENDPOINTS.FOOD_PARTNER.BASE),
@@ -28,16 +31,25 @@ const Dashboard = () => {
     () => api.get(API_ENDPOINTS.ORDERS.PARTNER_ORDERS),
     []
   );
+  
+  // State for real-time notification
+  const [newOrderNotification, setNewOrderNotification] = useState(null);
+  // State for orders - update when ordersData changes
+  const [orders, setOrders] = useState([]);
+  
+  // Update orders state when ordersData changes
+  useEffect(() => {
+    if (Array.isArray(ordersData?.data)) {
+      setOrders(ordersData.data);
+    } else if (Array.isArray(ordersData?.data?.orders)) {
+      setOrders(ordersData.data.orders);
+    }
+  }, [ordersData]);
+  
   // Defensive: check for correct structure, fallback to empty array
   const foodItems = Array.isArray(foodPartnerData?.data?.foodPartner?.foodItems)
     ? foodPartnerData.data.foodPartner.foodItems
     : (Array.isArray(foodPartnerData?.data?.foodItems) ? foodPartnerData.data.foodItems : []);
-  let orders = [];
-  if (Array.isArray(ordersData?.data)) {
-    orders = ordersData.data;
-  } else if (Array.isArray(ordersData?.data?.orders)) {
-    orders = ordersData.data.orders;
-  }
   const [activeTab, setActiveTab] = useState('orders');
   const [orderFilter, setOrderFilter] = useState('current');
   const [statusFilter, setStatusFilter] = useState('all'); // Filter by specific status
@@ -62,6 +74,24 @@ const Dashboard = () => {
     setStatusFilter('all');
   }, [orderFilter]);
 
+  // WebSocket: Listen for new order events (real-time)
+  useEffect(() => {
+    const cleanup = onWebSocketEvent('order:created', (orderData) => {
+      
+      // Show notification
+      setNewOrderNotification(orderData);
+      
+      // Auto-dismiss notification after 5 seconds
+      setTimeout(() => setNewOrderNotification(null), 5000);
+      
+      // Refresh orders to get the new order
+      refetchOrders();
+      
+    });
+
+    return cleanup;
+  }, [onWebSocketEvent, refetchOrders]);
+
 
   const handleStatusChange = async (orderId, status) => {
     if (FINAL_STATES.includes(status)) {
@@ -69,7 +99,7 @@ const Dashboard = () => {
       setModalOpen(true);
     } else {
       try {
-        await api.patch(`${API_ENDPOINTS.ORDERS.BASE}/${orderId}/status`, { status });
+        await api.patch(`${API_ENDPOINTS.ORDERS.CREATE}/${orderId}/status`, { status });
         refetchOrders();
       } catch (error) {
         alert('Error updating order status');
@@ -80,7 +110,7 @@ const Dashboard = () => {
   const confirmFinalState = async () => {
     if (pendingStatusChange) {
       try {
-        await api.patch(`${API_ENDPOINTS.ORDERS.BASE}/${pendingStatusChange.orderId}/status`, { status: pendingStatusChange.status });
+        await api.patch(`${API_ENDPOINTS.ORDERS.CREATE}/${pendingStatusChange.orderId}/status`, { status: pendingStatusChange.status });
         refetchOrders();
       } catch (error) {
         alert('Error updating order status');
@@ -116,6 +146,120 @@ const Dashboard = () => {
 
   return (
     <main className="profile-page">
+      {/* Real-time connection status indicator */}
+      <div style={{
+        position: 'fixed',
+        top: 80,
+        right: 20,
+        zIndex: 1000,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        padding: '8px 12px',
+        background: 'var(--color-surface)',
+        border: '1px solid var(--color-border)',
+        borderRadius: 8,
+        fontSize: '0.9rem',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+      }}>
+        <div style={{
+          width: 8,
+          height: 8,
+          borderRadius: '50%',
+          background: wsConnected ? '#4caf50' : connectionStatus === 'reconnecting' ? '#ff9800' : '#f44336',
+          animation: wsConnected ? 'none' : 'pulse 2s infinite',
+        }} />
+        <span style={{ color: 'var(--color-text)', fontWeight: 500 }}>
+          {wsConnected ? 'Live' : connectionStatus === 'reconnecting' ? 'Reconnecting...' : 'Offline'}
+        </span>
+      </div>
+
+      {/* New order notification toast */}
+      {newOrderNotification && (
+        <div style={{
+          position: 'fixed',
+          top: 120,
+          right: 20,
+          zIndex: 1001,
+          maxWidth: 400,
+          padding: '16px 20px',
+          background: 'linear-gradient(135deg, var(--color-accent) 0%, #ff6b6b 100%)',
+          color: '#fff',
+          borderRadius: 12,
+          boxShadow: '0 4px 20px rgba(226, 55, 71, 0.4)',
+          animation: 'slideInRight 0.3s ease-out',
+          cursor: 'pointer',
+        }}
+        onClick={() => {
+          setActiveTab('orders');
+          setOrderFilter('current');
+          setNewOrderNotification(null);
+        }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ fontSize: '2rem' }}>🔔</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 700, fontSize: '1.1rem', marginBottom: 4 }}>
+                New Order Received!
+              </div>
+              <div style={{ fontSize: '0.9rem', opacity: 0.95 }}>
+                {newOrderNotification.isCartOrder ? (
+                  <>
+                    {newOrderNotification.items.length === 1 ? (
+                      `${newOrderNotification.items[0].foodName} x${newOrderNotification.items[0].quantity}`
+                    ) : (
+                      `Cart Order (${newOrderNotification.items.length} items)`
+                    )}
+                  </>
+                ) : (
+                  `${newOrderNotification.foodName} x${newOrderNotification.quantity}`
+                )}
+              </div>
+              {newOrderNotification.isCartOrder && newOrderNotification.items.length > 1 && (
+                <div style={{ fontSize: '0.8rem', opacity: 0.85, marginTop: 2, maxHeight: 60, overflowY: 'auto' }}>
+                  {newOrderNotification.items.map((item, idx) => (
+                    <div key={idx}>• {item.foodName} x{item.quantity}</div>
+                  ))}
+                </div>
+              )}
+              <div style={{ fontSize: '0.85rem', opacity: 0.9, marginTop: 4 }}>
+                {newOrderNotification.isCartOrder
+                  ? (() => {
+                      let total = Number(newOrderNotification.total);
+                      if (!total && Array.isArray(newOrderNotification.items)) {
+                        total = newOrderNotification.items.reduce((sum, item) => sum + (item.subtotal || (item.price * item.quantity) || 0), 0);
+                      }
+                      return `$${total.toFixed(2)}`;
+                    })()
+                  : `$${(newOrderNotification.totalPrice || 0).toFixed(2)}`}
+              </div>
+            </div>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setNewOrderNotification(null);
+              }}
+              style={{
+                background: 'rgba(255,255,255,0.2)',
+                border: 'none',
+                color: '#fff',
+                borderRadius: '50%',
+                width: 24,
+                height: 24,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                fontSize: '1.2rem',
+                lineHeight: 1,
+              }}
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
+
       <ConfirmModal
         open={modalOpen}
         title={pendingStatusChange?.status === 'delivered' ? 'Mark as Delivered?' : 'Cancel Order?'}
@@ -236,10 +380,36 @@ const Dashboard = () => {
                         {/* ...existing code for order card... */}
                         <div className="order-card-header">
                           <div className="order-food-info">
-                            <h4 className="order-food-name">{order.foodName}</h4>
-                            <p className="order-quantity">Qty: {order.quantity} × ${order.totalPrice / order.quantity}</p>
+                            {order.items && order.items.length > 0 ? (
+                              <>
+                                <h4 className="order-food-name">Cart Order ({order.items.length} items)</h4>
+                                <p className="order-quantity">
+                                  {order.items.map((item, idx) => (
+                                    <span key={idx} style={{ display: 'block', fontSize: '0.95rem', marginBottom: '2px' }}>
+                                      {item.foodName} × {item.quantity} × ${(item.price || 0).toFixed(2)}
+                                    </span>
+                                  ))}
+                                </p>
+                              </>
+                            ) : (
+                              <>
+                                <h4 className="order-food-name">{order.foodName}</h4>
+                                <p className="order-quantity">Qty: {order.quantity} × ${(order.totalPrice / order.quantity).toFixed(2)}</p>
+                              </>
+                            )}
                           </div>
-                          <div className="order-total">${order.totalPrice}</div>
+                          <div className="order-total">
+                            {order.items && order.items.length > 0
+                              ? (() => {
+                                  // Use order.total if present and > 0, else sum item subtotals
+                                  let total = Number(order.total);
+                                  if (!total) {
+                                    total = order.items.reduce((sum, item) => sum + (item.subtotal || (item.quantity * item.price) || 0), 0);
+                                  }
+                                  return `$${total.toFixed(2)}`;
+                                })()
+                              : `$${(order.totalPrice || 0).toFixed(2)}`}
+                          </div>
                         </div>
                         <div className="order-details">
                           <div className="order-detail-row">
@@ -302,10 +472,35 @@ const Dashboard = () => {
                       <div key={order._id} className={`order-card status-${order.status}`}>
                         <div className="order-card-header">
                           <div className="order-food-info">
-                            <h4 className="order-food-name">{order.foodName}</h4>
-                            <p className="order-quantity">Qty: {order.quantity} × ${order.totalPrice / order.quantity}</p>
+                            {order.items && order.items.length > 0 ? (
+                              <>
+                                <h4 className="order-food-name">Cart Order ({order.items.length} items)</h4>
+                                <p className="order-quantity">
+                                  {order.items.map((item, idx) => (
+                                    <span key={idx} style={{ display: 'block', fontSize: '0.95rem', marginBottom: '2px' }}>
+                                      {item.foodName} × {item.quantity} × ${(item.price || 0).toFixed(2)}
+                                    </span>
+                                  ))}
+                                </p>
+                              </>
+                            ) : (
+                              <>
+                                <h4 className="order-food-name">{order.foodName}</h4>
+                                <p className="order-quantity">Qty: {order.quantity} × ${(order.totalPrice / order.quantity).toFixed(2)}</p>
+                              </>
+                            )}
                           </div>
-                          <div className="order-total">${order.totalPrice}</div>
+                          <div className="order-total">
+                            {order.items && order.items.length > 0
+                              ? (() => {
+                                  let total = Number(order.total);
+                                  if (!total) {
+                                    total = order.items.reduce((sum, item) => sum + (item.subtotal || (item.quantity * item.price) || 0), 0);
+                                  }
+                                  return `$${total.toFixed(2)}`;
+                                })()
+                              : `$${(order.totalPrice || 0).toFixed(2)}`}
+                          </div>
                         </div>
                         <div className="order-details">
                           <div className="order-detail-row">

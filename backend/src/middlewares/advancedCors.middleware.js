@@ -1,12 +1,13 @@
-// Advanced, dynamic, industry-grade CORS middleware for InstaCrave
-// Supports dynamic whitelist, logging, preflight, and secure credentials handling
+// CORS middleware with origin whitelist validation
+// Logs rejected origins and supports preflight requests
 
 const AppError = require('../utils/AppError');
 const { sendErrorResponse } = require('../utils/response');
+const logger = require('../services/logger.service');
 
 const allowedOrigins = [
     process.env.FRONTEND_URL,
-    'http://localhost:5173',
+    process.env.FRONTEND_URL_LOCAL,
     // Add more trusted origins as needed
 ];
 
@@ -27,7 +28,12 @@ function corsLogger(req, origin, result) {
     // Log CORS decisions for auditing (could be extended to use Winston, Sentry, etc.)
     if (process.env.NODE_ENV !== 'test') {
         // Only log in non-test environments
-        console.info(`[CORS] ${req.method} ${req.originalUrl} | Origin: ${origin} | Allowed: ${result}`);
+        logger.debug('CORS request', {
+            method: req.method,
+            url: req.originalUrl,
+            origin,
+            allowed: result,
+        });
     }
 }
 

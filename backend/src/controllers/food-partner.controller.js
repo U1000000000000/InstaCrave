@@ -2,7 +2,9 @@ const foodPartnerModel = require("../models/foodpartner.model");
 const sanitizeHtml = require('sanitize-html');
 const foodModel = require("../models/food.model");
 const followModel = require("../models/follow.model");
-const { v4: uuid } = require("uuid");
+const analyticsService = require("../services/analytics.service");
+const logger = require("../services/logger.service");
+const { uuidv4: uuid } = require("../utils/uuid");
 const storageService = require("../services/storage.service");
 
 const AppError = require("../utils/AppError");
@@ -29,6 +31,20 @@ const getFoodPartnerById = catchAsync(async (req, res) => {
   }
 
   if (!foodPartner) throw new AppError("Food partner not found", 404);
+
+  // Track analytics
+  await analyticsService.trackEvent({
+    eventType: 'partner:profile_viewed',
+    userId: user?._id?.toString(),
+    userType: user ? 'User' : null,
+    data: {
+      partnerId: foodPartnerId.toString(),
+      partnerName: foodPartner.name,
+      foodItemsCount: foodItemsByFoodPartner.length,
+      isFollowing,
+    },
+    request: req,
+  }).catch(err => logger.error('Failed to track partner profile view', { error: err.message }));
 
   responseUtil.sendItemResponse(res, {
     data: {
@@ -67,6 +83,18 @@ const getFoodPartner = catchAsync(async (req, res) => {
     },
     message: "Food partner retrieved successfully",
   });
+
+  // Track analytics
+  await analyticsService.trackEvent({
+    eventType: 'partner:own_profile_viewed',
+    userId: req.foodPartner._id.toString(),
+    userType: 'FoodPartner',
+    data: {
+      foodItemsCount: foodItemsByFoodPartner.length,
+      followersCount: followers.length,
+    },
+    request: req,
+  }).catch(err => logger.error('Failed to track own profile view', { error: err.message }));
 });
 
 const followFoodPartner = catchAsync(async (req, res) => {
@@ -92,6 +120,18 @@ const followFoodPartner = catchAsync(async (req, res) => {
       $inc: { followCount: -1 },
     });
 
+    // Track unfollow
+    await analyticsService.trackEvent({
+      eventType: 'partner:unfollowed',
+      userId: user._id.toString(),
+      userType: 'User',
+      data: {
+        partnerId: foodPartnerId.toString(),
+        partnerName: foodPartner.name,
+      },
+      request: req,
+    }).catch(err => logger.error('Failed to track unfollow', { error: err.message }));
+
     return responseUtil.sendItemResponse(res, {
       data: null,
       message: "Food Partner unfollowed successfully",
@@ -106,6 +146,18 @@ const followFoodPartner = catchAsync(async (req, res) => {
   await foodPartnerModel.findByIdAndUpdate(foodPartnerId, {
     $inc: { followCount: 1 },
   });
+
+  // Track follow
+  await analyticsService.trackEvent({
+    eventType: 'partner:followed',
+    userId: user._id.toString(),
+    userType: 'User',
+    data: {
+      partnerId: foodPartnerId.toString(),
+      partnerName: foodPartner.name,
+    },
+    request: req,
+  }).catch(err => logger.error('Failed to track follow', { error: err.message }));
 
   responseUtil.sendItemResponse(res, {
     data: follow,
@@ -144,24 +196,41 @@ const editFoodPartner = catchAsync(async (req, res) => {
     throw new AppError(`Cannot update field: ${updateKeys[0]}`, 400);
   }
 
-  if (updateFields.name) {
-    updateFields.name = sanitizeHtml(updateFields.name, { allowedTags: [], allowedAttributes: {} });
+  let updatedFoodPartner;
+  if (updateFields.password) {
+    // Secure: fetch, set, save (triggers hashing)
+    updatedFoodPartner = await foodPartnerModel.findById(foodPartnerId);
+    if (!updatedFoodPartner) throw new AppError("Food partner not found", 404);
+    updatedFoodPartner.password = updateFields.password;
+    await updatedFoodPartner.save();
+  } else {
+    if (updateFields.name) {
+      updateFields.name = sanitizeHtml(updateFields.name, { allowedTags: [], allowedAttributes: {} });
+    }
+    if (updateFields.address) {
+      updateFields.address = sanitizeHtml(updateFields.address, { allowedTags: [], allowedAttributes: {} });
+    }
+    if (updateFields.contactName) {
+      updateFields.contactName = sanitizeHtml(updateFields.contactName, { allowedTags: [], allowedAttributes: {} });
+    }
+    updatedFoodPartner = await foodPartnerModel.findByIdAndUpdate(
+      foodPartnerId,
+      { $set: updateFields },
+      { new: true }
+    );
+    if (!updatedFoodPartner) throw new AppError("Food partner not found", 404);
   }
-  if (updateFields.address) {
-    updateFields.address = sanitizeHtml(updateFields.address, { allowedTags: [], allowedAttributes: {} });
-  }
-  if (updateFields.contactName) {
-    updateFields.contactName = sanitizeHtml(updateFields.contactName, { allowedTags: [], allowedAttributes: {} });
-  }
-  // Password will be hashed by model pre-save hook
 
-  const updatedFoodPartner = await foodPartnerModel.findByIdAndUpdate(
-    foodPartnerId,
-    { $set: updateFields },
-    { new: true }
-  );
-
-  if (!updatedFoodPartner) throw new AppError("Food partner not found", 404);
+  // Track analytics
+  await analyticsService.trackEvent({
+    eventType: 'partner:profile_updated',
+    userId: updatedFoodPartner._id.toString(),
+    userType: 'FoodPartner',
+    data: {
+      fieldUpdated: updateKeys[0],
+    },
+    request: req,
+  }).catch(err => logger.error('Failed to track partner profile update', { error: err.message }));
 
   responseUtil.sendItemResponse(res, {
     data: updatedFoodPartner,

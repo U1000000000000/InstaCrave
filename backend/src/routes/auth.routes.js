@@ -8,9 +8,10 @@ const {
     registerUserSchema, 
     loginUserSchema, 
     registerFoodPartnerSchema, 
-    loginFoodPartnerSchema 
+    loginFoodPartnerSchema,
 } = require('../validation/auth.validation');
-const { emptyQuerySchema, emptyParamsSchema } = require('../validation/common.validation');
+const { emptyQuerySchema, emptyParamsSchema, emptyBodySchema } = require('../validation/common.validation');
+const { cacheMiddleware, invalidateCache} = require('../middlewares/cache.middleware');
 
 const router = express.Router();
 
@@ -45,7 +46,9 @@ const router = express.Router();
  *                   type: string
  *                   example: Token refreshed successfully
  */
-router.post('/refresh-token', refreshLimiter, authController.refreshToken);
+router.post('/refresh-token', 
+    refreshLimiter, 
+    validate({ body: emptyBodySchema, query: emptyQuerySchema, params: emptyParamsSchema }), authController.refreshToken);
 
 
 /**
@@ -111,13 +114,24 @@ router.post('/user/register', validate({ body: registerUserSchema, query: emptyQ
  *             schema:
  *               $ref: '#/components/schemas/User'
  */
-router.post('/user/login', validate({ body: loginUserSchema, query: emptyQuerySchema, params: emptyParamsSchema }), loginLimiter, authController.loginUser);
+router.post('/user/login',
+    validate({ body: loginUserSchema, query: emptyQuerySchema, params: emptyParamsSchema }),
+    loginLimiter,
+    invalidateCache(
+        // Clear session list after login so other devices see the new session
+        // Note: We can't use req.user here as it's not authenticated yet
+        // The controller will need to handle cache invalidation for the specific user
+        // For now, we'll use a post-login hook pattern
+        '*:*:sessions'
+    ),
+    authController.loginUser
+);
 
 
 /**
  * @swagger
  * /api/v1/auth/user/logout:
- *   get:
+ *   post:
  *     summary: Logout the current user
  *     tags: [Auth]
  *     description: |
@@ -134,7 +148,26 @@ router.post('/user/login', validate({ body: loginUserSchema, query: emptyQuerySc
  *                   type: string
  *                   example: User logged out successfully
  */
-router.get('/user/logout', authController.logoutUser);
+router.post('/user/logout',
+    validate({ body: emptyBodySchema, query: emptyQuerySchema, params: emptyParamsSchema }),
+    authMiddleware.authUserMiddleware,
+    invalidateCache(
+        (req) => {
+            // Defensive: Handle case where req.user might not exist
+            if (!req.user || !req.user._id) {
+                return ['user:anonymous:*'];
+            }
+            const userId = req.user._id;
+            const userType = req.user.role || 'user';
+            // Clear all user-specific caches including sessions, me, profile, etc.
+            return [
+                `${userType}:${userId}:*`,
+                `user:${userId}:*`
+            ];
+        }
+    ),
+    authController.logoutUser
+);
 
 /**
  * @swagger
@@ -237,12 +270,23 @@ router.post(
  *             schema:
  *               $ref: '#/components/schemas/FoodPartner'
  */
-router.post('/food-partner/login', validate({ body: loginFoodPartnerSchema, query: emptyQuerySchema, params: emptyParamsSchema }), loginLimiter, authController.loginFoodPartner);
+router.post('/food-partner/login',
+    validate({ body: loginFoodPartnerSchema, query: emptyQuerySchema, params: emptyParamsSchema }),
+    loginLimiter,
+    invalidateCache(
+        // Clear session list after login so other devices see the new session
+        // Note: We can't use req.user here as it's not authenticated yet
+        // The controller will need to handle cache invalidation for the specific user
+        // For now, we'll use a post-login hook pattern
+        '*:*:sessions'
+    ),
+    authController.loginFoodPartner
+);
 
 /**
  * @swagger
  * /api/v1/auth/food-partner/logout:
- *   get:
+ *   post:
  *     summary: Logout the current food partner
  *     tags: [Auth]
  *     description: |
@@ -259,7 +303,26 @@ router.post('/food-partner/login', validate({ body: loginFoodPartnerSchema, quer
  *                   type: string
  *                   example: Food partner logged out successfully
  */
-router.get('/food-partner/logout', authController.logoutFoodPartner);
+router.post('/food-partner/logout',
+    validate({ body: emptyBodySchema, query: emptyQuerySchema, params: emptyParamsSchema }),
+    authMiddleware.authFoodPartnerMiddleware,
+    invalidateCache(
+        (req) => {
+            // Defensive: Handle case where req.user might not exist
+            if (!req.user || !req.user._id) {
+                return ['partner:anonymous:*'];
+            }
+            const partnerId = req.user._id;
+            const userType = req.user.role || 'foodPartner';
+            // Clear all partner-specific caches including sessions, me, profile, etc.
+            return [
+                `${userType}:${partnerId}:*`,
+                `partner:${partnerId}:*`
+            ];
+        }
+    ),
+    authController.logoutFoodPartner
+);
 
 /**
  * @swagger
@@ -281,7 +344,20 @@ router.get('/food-partner/logout', authController.logoutFoodPartner);
  *                 - $ref: '#/components/schemas/User'
  *                 - $ref: '#/components/schemas/FoodPartner'
  */
-router.get('/me', authMiddleware.authAnyMiddleware, authController.getCurrentUser);
+router.get('/me',
+    authMiddleware.authAnyMiddleware,
+    validate({ query: emptyQuerySchema, params: emptyParamsSchema, body: emptyBodySchema }),
+    cacheMiddleware(300, (req) => {
+        // Defensive: Handle case where req.user might not exist
+        if (!req.user || !req.user._id) {
+            return 'auth:me:unauthenticated';
+        }
+        const userId = req.user._id;
+        const userType = req.user.role || 'user';
+        return `${userType}:${userId}:me`;
+    }),
+    authController.getCurrentUser
+);
 
 /**
  * @swagger
@@ -309,7 +385,22 @@ router.get('/me', authMiddleware.authAnyMiddleware, authController.getCurrentUse
  *                   type: string
  *                   example: Active sessions listed successfully
  */
-router.get('/sessions', authMiddleware.authAnyMiddleware, authController.listSessions);
+router.get('/sessions',
+    authMiddleware.authAnyMiddleware,
+    validate({ query: emptyQuerySchema, params: emptyParamsSchema, body: emptyBodySchema }),
+    cacheMiddleware(60, (req) => {
+        // Defensive: Handle case where req.user might not exist
+        if (!req.user || !req.user._id) {
+            return 'auth:sessions:unauthenticated';
+        }
+        const userId = req.user._id;
+        // Use capitalized userType for cache key to match Session model
+        let userType = 'User';
+        if (req.foodPartner) userType = 'FoodPartner';
+        return `${userType}:${userId}:sessions`;
+    }),
+    authController.listSessions
+);
 
 /**
  * @swagger
@@ -340,6 +431,20 @@ router.get('/sessions', authMiddleware.authAnyMiddleware, authController.listSes
  *                   type: string
  *                   example: Session revoked successfully
  */
-router.delete('/sessions/:sessionId', authMiddleware.authAnyMiddleware, authController.revokeSession);
+router.delete('/sessions/:sessionId',
+    authMiddleware.authAnyMiddleware,
+    invalidateCache(
+        (req) => {
+            // Defensive: Handle case where req.user might not exist
+            if (!req.user || !req.user._id) {
+                return ['auth:sessions:unauthenticated'];
+            }
+            const userId = req.user._id;
+            const userType = req.user.role || 'user';
+            return `${userType}:${userId}:sessions`;
+        }
+    ),
+    authController.revokeSession
+);
 
 module.exports = router;

@@ -1,6 +1,7 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { useProtectedRequest } from '../../hooks/useProtectedRequest';
+import { useWebSocket } from '../../context/WebSocketContext';
 import api from '../../services/api';
 import { API_BASE_URL } from '../../config';
 import { API_ENDPOINTS } from '../../constants';
@@ -10,14 +11,16 @@ const FINAL_STATES = ['delivered', 'cancelled'];
 const ACTIVE_STATES = ['pending', 'confirmed', 'preparing', 'ready'];
 
 const Orders = () => {
+  const { on: onWebSocketEvent } = useWebSocket();
   const [orders, setOrders] = useState([]);
   const [activeTab, setActiveTab] = useState('current');
+  const [statusUpdateNotification, setStatusUpdateNotification] = useState(null);
   const underlineContainerRef = useRef(null);
   const currentRef = useRef(null);
   const pastRef = useRef(null);
   const [underline, setUnderline] = useState({ left: 0, width: 0 });
 
-  const { data, loading: ordersLoading, error: ordersError } = useProtectedRequest(
+  const { data, loading: ordersLoading, error: ordersError, refetch: refetchOrders } = useProtectedRequest(
     () => api.get(API_ENDPOINTS.ORDERS.USER_ORDERS),
     []
   );
@@ -30,6 +33,23 @@ const Orders = () => {
     }
     setOrders(ordersArr);
   }, [data]);
+
+  // WebSocket: Listen for order status updates (real-time)
+  useEffect(() => {
+    const cleanup = onWebSocketEvent('order:statusUpdated', (orderData) => {
+      
+      // Show notification
+      setStatusUpdateNotification(orderData);
+      
+      // Auto-dismiss notification after 5 seconds
+      setTimeout(() => setStatusUpdateNotification(null), 5000);
+      
+      // Refresh orders to get updated status
+      refetchOrders();
+    });
+
+    return cleanup;
+  }, [onWebSocketEvent, refetchOrders]);
 
   useEffect(() => {
     const updateUnderline = () => {
@@ -181,41 +201,78 @@ const Orders = () => {
             {currentOrders.map(order => (
               <div key={order._id} className={`order-card status-${order.status}`}>
                 <div className="order-card-header" style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                  <a href={`/food-partner/${order.foodPartnerId}`} style={{ display: 'flex', alignItems: 'center', marginRight: 10 }}>
+                  <a href={`/food-partner/${order.restaurant || order.foodPartner}`} style={{ display: 'flex', alignItems: 'center', marginRight: 10 }}>
                     <img
                       src={order.foodPartnerProfileImage || 'https://ik.imagekit.io/u1000/Food%20Vector%20Icon.svg?updatedAt=1759741838210'}
-                      alt={order.foodPartnerName}
+                      alt={order.restaurantName || order.foodPartnerName}
                       style={{ width: 48, height: 48, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--color-accent)', background: '#232428' }}
                     />
                   </a>
                   <div className="order-food-info" style={{ flex: 1 }}>
                     <h4 className="order-food-name" style={{ marginBottom: 2 }}>
-                      <a href={`/reels/${order.foodId}?partnerId=${order.foodPartnerId}`} style={{ color: 'inherit', textDecoration: 'underline', fontWeight: 700 }}>
-                        {order.foodName}
-                      </a>
+                      {order.items && order.items.length > 0 ? (
+                        <span style={{ fontWeight: 700, fontSize: '1.08rem' }}>Cart Order</span>
+                      ) : (
+                        <a href={`/reels/${order.foodId}?partnerId=${order.foodPartnerId}`} style={{ color: 'inherit', textDecoration: 'underline', fontWeight: 700 }}>
+                          {order.foodName}
+                        </a>
+                      )}
                     </h4>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <span style={{ fontSize: '1.01rem', color: 'var(--color-text-secondary)' }}>From</span>
-                      <a href={`/food-partner/${order.foodPartnerId}`} style={{ color: 'var(--color-accent)', textDecoration: 'underline', fontWeight: 700 }}>{order.foodPartnerName}</a>
+                      <a href={`/food-partner/${order.restaurant || order.foodPartner}`} style={{ color: 'var(--color-accent)', textDecoration: 'underline', fontWeight: 700 }}>{order.restaurantName || order.foodPartnerName}</a>
                     </div>
                     <div style={{ fontSize: '0.98rem', color: 'var(--color-text-secondary)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
                       <span role="img" aria-label="pin">📍</span>
-                      <span>{order.foodPartnerAddress}</span>
+                      <span>{order.deliveryAddress}</span>
                     </div>
                   </div>
-                  <div className="order-total" style={{ fontWeight: 700, color: 'var(--color-accent)', fontSize: '1.35rem' }}>${order.totalPrice}</div>
+                  <div className="order-total" style={{ fontWeight: 700, color: 'var(--color-accent)', fontSize: '1.35rem' }}>
+                    {(() => {
+                      if (typeof order.total === 'number' && order.total > 0) return `$${order.total.toFixed(2)}`;
+                      if (typeof order.totalPrice === 'number' && order.totalPrice > 0) return `$${order.totalPrice.toFixed(2)}`;
+                      if (order.items && Array.isArray(order.items) && order.items.length > 0) {
+                        const sum = order.items.reduce((acc, item) => acc + (item.subtotal || (item.price * item.quantity) || 0), 0);
+                        return `$${sum.toFixed(2)}`;
+                      }
+                      return '$0.00';
+                    })()}
+                  </div>
                 </div>
-                <div className="order-details">
-                  <div className="order-detail-row">
-                    <span className="detail-text">Address: {order.deliveryAddress}</span>
+                  <div className="order-details">
+                    <div className="order-detail-row">
+                      <span className="detail-text">Order ID: {order._id.slice(-8)}</span>
+                    </div>
+                    <div className="order-detail-row">
+                      <span className="detail-text">Placed: {new Date(order.createdAt).toLocaleString()}</span>
+                    </div>
+                    {order.items && order.items.length > 0 && (
+                      <div className="order-detail-row" style={{ marginTop: 10 }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '1.01rem', background: 'var(--color-bg-secondary)', borderRadius: 8, overflow: 'hidden' }}>
+                          <thead>
+                            <tr style={{ background: 'var(--color-bg-tertiary)' }}>
+                              <th style={{ textAlign: 'left', padding: '6px 10px' }}>Item</th>
+                              <th style={{ textAlign: 'center', padding: '6px 10px' }}>Qty</th>
+                              <th style={{ textAlign: 'right', padding: '6px 10px' }}>Price</th>
+                              <th style={{ textAlign: 'right', padding: '6px 10px' }}>Subtotal</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {order.items.map(item => (
+                              <tr key={item.food}>
+                                <td style={{ padding: '6px 10px' }}>
+                                  <a href={`/reels/${item.food}`} style={{ color: 'inherit', textDecoration: 'underline', fontWeight: 600 }}>{item.foodName}</a>
+                                </td>
+                                <td style={{ textAlign: 'center', padding: '6px 10px' }}>{item.quantity}</td>
+                                <td style={{ textAlign: 'right', padding: '6px 10px' }}>${item.price.toFixed(2)}</td>
+                                <td style={{ textAlign: 'right', padding: '6px 10px' }}>${item.subtotal.toFixed(2)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
                   </div>
-                  <div className="order-detail-row">
-                    <span className="detail-text">Qty: {order.quantity}</span>
-                  </div>
-                  <div className="order-detail-row">
-                    <span className="detail-text">Order ID: {order._id.slice(-8)}</span>
-                  </div>
-                </div>
                 <div className="order-card-footer" style={{ justifyContent: 'flex-end' }}>
                   <span className={`status-badge status-${order.status}`}>
                     {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
@@ -260,15 +317,37 @@ const Orders = () => {
                       <span>{order.foodPartnerAddress}</span>
                     </div>
                   </div>
-                  <div className="order-total" style={{ fontWeight: 700, color: 'var(--color-accent)', fontSize: '1.35rem' }}>${order.totalPrice}</div>
+                  <div className="order-total" style={{ fontWeight: 700, color: 'var(--color-accent)', fontSize: '1.35rem' }}>
+                    {order.items && order.items.length > 0
+                      ? (() => {
+                          let total = Number(order.total);
+                          if (!total) {
+                            total = order.items.reduce((sum, item) => sum + (item.subtotal || (item.quantity * item.price) || 0), 0);
+                          }
+                          return `$${total.toFixed(2)}`;
+                        })()
+                      : `$${(order.totalPrice || 0).toFixed(2)}`}
+                  </div>
                 </div>
                 <div className="order-details">
                   <div className="order-detail-row">
                     <span className="detail-text">Address: {order.deliveryAddress}</span>
                   </div>
-                  <div className="order-detail-row">
-                    <span className="detail-text">Qty: {order.quantity}</span>
-                  </div>
+                  {order.items && order.items.length > 0 ? (
+                    <div className="order-detail-row" style={{ marginTop: 10, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2 }}>
+                      {order.items.map((item, idx) => (
+                        <span key={idx} style={{ fontSize: '0.98rem' }}>
+                          <a href={`/reels/${item.food}`} style={{ color: 'inherit', textDecoration: 'underline', fontWeight: 600 }}>
+                            {item.foodName}
+                          </a> × {item.quantity} × ${(item.price || 0).toFixed(2)}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="order-detail-row">
+                      <span className="detail-text">Qty: {order.quantity}</span>
+                    </div>
+                  )}
                   <div className="order-detail-row">
                     <span className="detail-text">Order ID: {order._id.slice(-8)}</span>
                   </div>

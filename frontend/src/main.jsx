@@ -6,6 +6,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.jsx';
+import { WebSocketProvider } from './context/WebSocketContext';
 import { applyTheme } from './utils/helpers';
 import { STORAGE_KEYS, THEMES } from './constants';
 
@@ -20,6 +21,8 @@ if (!rootElement) {
 
 createRoot(rootElement).render(
   <StrictMode>
-    <App />
+    <WebSocketProvider>
+      <App />
+    </WebSocketProvider>
   </StrictMode>
 );

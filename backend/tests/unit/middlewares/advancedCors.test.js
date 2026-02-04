@@ -4,9 +4,10 @@ describe('Advanced CORS Middleware', () => {
   let mockReq, mockRes, mockNext;
   const originalEnv = process.env.FRONTEND_URL;
 
-  beforeAll(() => {
-    process.env.FRONTEND_URL = 'http://localhost:3000';
-  });
+    beforeAll(() => {
+      process.env.FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
+      process.env.FRONTEND_URL_LOCAL = process.env.FRONTEND_URL_LOCAL || 'http://localhost:5173';
+    });
 
   beforeEach(() => {
     mockReq = {
@@ -31,7 +32,7 @@ describe('Advanced CORS Middleware', () => {
 
   describe('Allowed Origins', () => {
     it('should allow requests from configured origins', () => {
-      mockReq.headers.origin = 'http://localhost:5173';
+        mockReq.headers.origin = process.env.FRONTEND_URL_LOCAL || 'http://localhost:5173';
       
       advancedCors(mockReq, mockRes, mockNext);
       
@@ -39,16 +40,16 @@ describe('Advanced CORS Middleware', () => {
     });
 
     it('should set CORS headers for allowed origins', () => {
-      mockReq.headers.origin = 'http://localhost:5173';
+        mockReq.headers.origin = process.env.FRONTEND_URL_LOCAL || 'http://localhost:5173';
       
       advancedCors(mockReq, mockRes, mockNext);
       
-      expect(mockRes.header).toHaveBeenCalledWith('Access-Control-Allow-Origin', 'http://localhost:5173');
+        expect(mockRes.header).toHaveBeenCalledWith('Access-Control-Allow-Origin', process.env.FRONTEND_URL_LOCAL || 'http://localhost:5173');
       expect(mockRes.header).toHaveBeenCalledWith('Access-Control-Allow-Credentials', 'true');
     });
 
     it('should set Vary header', () => {
-      mockReq.headers.origin = 'http://localhost:5173';
+        mockReq.headers.origin = process.env.FRONTEND_URL_LOCAL || 'http://localhost:5173';
       
       advancedCors(mockReq, mockRes, mockNext);
       
@@ -87,7 +88,7 @@ describe('Advanced CORS Middleware', () => {
   describe('Preflight Requests (OPTIONS)', () => {
     it('should handle preflight for allowed origin', () => {
       mockReq.method = 'OPTIONS';
-      mockReq.headers.origin = 'http://localhost:5173';
+        mockReq.headers.origin = process.env.FRONTEND_URL_LOCAL || 'http://localhost:5173';
       
       advancedCors(mockReq, mockRes, mockNext);
       
@@ -112,7 +113,7 @@ describe('Advanced CORS Middleware', () => {
     methods.forEach(method => {
       it(`should allow ${method} requests from allowed origins`, () => {
         mockReq.method = method;
-        mockReq.headers.origin = 'http://localhost:5173';
+          mockReq.headers.origin = process.env.FRONTEND_URL_LOCAL || 'http://localhost:5173';
         
         advancedCors(mockReq, mockRes, mockNext);
         

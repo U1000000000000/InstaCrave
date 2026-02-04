@@ -10,7 +10,7 @@ const editFoodPartnerSchema = Joi.object({
   address: Joi.string().min(5).max(200).custom(sanitize),
   phone: Joi.string().min(8).max(15),
   profileImage: Joi.string().uri(),
-  password: Joi.string().min(8),
+  password: Joi.string().min(6),
 }).unknown(false);
 
 module.exports = {

@@ -63,7 +63,7 @@ const FoodPartnerProfile = () => {
 
   const handleEditSave = async () => {
     setEditLoading(true);
-    setError('');
+    setEditError('');
     try {
       if (editField === 'profileImage') {
         const file = fileInputRef.current.files[0];
@@ -90,7 +90,7 @@ const FoodPartnerProfile = () => {
   const handleEditCancel = () => {
     setEditField(null);
     setEditValue('');
-    setError('');
+    setEditError('');
     setMenuOpen('');
   };
 
@@ -481,20 +481,19 @@ const FoodPartnerProfile = () => {
             <button
               style={{
                 width:'100%',
-                background:'var(--color-surface)',
-                color:'var(--color-accent)',
-                border:'1.5px solid var(--color-accent)',
+                background:'#232326',
+                color:'#fff',
+                border:'1.5px solid var(--color-border)',
                 borderRadius:12,
                 padding:'18px',
                 fontWeight:700,
                 fontSize:'1.13rem',
-                marginBottom:'8px',
+                marginBottom:'8px', // match Change Profile Photo to Change Password spacing
                 marginTop:0,
                 boxShadow:'var(--shadow-sm)',
                 cursor:'pointer',
                 textAlign:'left',
-                transition:'background 0.18s,border 0.18s,color 0.18s',
-                outline:'none',
+                transition:'background 0.18s,border 0.18s'
               }}
               onClick={()=>navigate('/food-partner/sessions')}
             >

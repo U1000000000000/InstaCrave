@@ -1,5 +1,6 @@
 // Centralized error handling middleware for Express
 const responseUtil = require('../utils/response');
+const logger = require('../services/logger.service');
 
 module.exports = (err, req, res, next) => {
   const statusCode = err.statusCode || 500;
@@ -9,14 +10,25 @@ module.exports = (err, req, res, next) => {
   // Only include stack in non-production and for 5xx errors
   if (process.env.NODE_ENV !== 'production' && err.stack && statusCode >= 500) details.push({ stack: err.stack });
 
-  // Professional logging: minimal for 401/403, full for others
+  // Logging: minimal for 401/403, full for others
   if (statusCode === 401 || statusCode === 403) {
     // Log only summary for expected auth errors
-    console.info(`[${new Date().toISOString()}] Auth error ${statusCode} at ${req.method} ${req.originalUrl} - ${message} - IP: ${req.ip}`);
+    logger.info('Authentication/authorization error', {
+      statusCode,
+      message,
+      method: req.method,
+      url: req.originalUrl,
+      ip: req.ip,
+    });
   } else {
     // Log full error for unexpected/5xx
-    console.error(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl} - ${message}`);
-    if (err.stack) console.error(err.stack);
+    logger.error('Request error', {
+      statusCode,
+      message,
+      method: req.method,
+      url: req.originalUrl,
+      stack: err.stack,
+    });
   }
 
   responseUtil.sendErrorResponse(res, {

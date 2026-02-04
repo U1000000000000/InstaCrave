@@ -43,6 +43,18 @@ export const API_ENDPOINTS = {
     BASE: '/api/v1/search',
     EXPLORE: '/api/v1/search/explore',
   },
+  CART: {
+    BASE: '/api/v1/cart',
+    ITEMS: '/api/v1/cart/items',
+    MERGE: '/api/v1/cart/merge',
+    VALIDATE: '/api/v1/cart/validate',
+    SUMMARY: '/api/v1/cart/summary',
+  },
+  PAYMENT: {
+    INITIATE: '/api/v1/payment/initiate',
+    PROCESS: '/api/v1/payment/process',
+    VERIFY: '/api/v1/payment/verify',
+  },
 };
 
 export const USER_TYPES = {
@@ -64,6 +76,9 @@ export const ROUTES = {
     REELS: '/user/reels',
     SEARCH: '/user/search',
     PROFILE: '/user/profile',
+    CART: '/user/cart',
+    CHECKOUT: '/user/checkout',
+    PAYMENT: '/user/payment',
   },
   FOOD_PARTNER: {
     LOGIN: '/food-partner/login',

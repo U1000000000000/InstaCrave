@@ -25,6 +25,11 @@ import UserReels from '../pages/user/Reels';
 import UserProfile from '../pages/user/Profile';
 import UserChangePassword from '../pages/user/ChangePassword';
 import Orders from '../pages/user/Orders';
+import Cart from '../pages/user/Cart';
+import Checkout from '../pages/user/Checkout';
+import Payment from '../pages/user/Payment';
+import OrderSuccess from '../pages/user/OrderSuccess';
+import OrderFailure from '../pages/user/OrderFailure';
 import PublicFoodPartnerProfile from '../pages/food-partner/PublicProfile';
 import ReelPage from '../pages/user/ReelPage';
 import ProtectedRoute from '../components/ProtectedRoute';
@@ -105,6 +110,41 @@ const AnimatedRoutes = () => {
                     <PageTransition>
                         <ProtectedRoute requiredUserType="user">
                             <Orders /><UserBottomNav />
+                        </ProtectedRoute>
+                    </PageTransition>
+                } />
+                <Route path="/user/cart" element={
+                    <PageTransition>
+                        <ProtectedRoute requiredUserType="user">
+                            <Cart /><UserBottomNav />
+                        </ProtectedRoute>
+                    </PageTransition>
+                } />
+                <Route path="/user/checkout" element={
+                    <PageTransition>
+                        <ProtectedRoute requiredUserType="user">
+                            <Checkout /><UserBottomNav />
+                        </ProtectedRoute>
+                    </PageTransition>
+                } />
+                <Route path="/user/payment" element={
+                    <PageTransition>
+                        <ProtectedRoute requiredUserType="user">
+                            <Payment /><UserBottomNav />
+                        </ProtectedRoute>
+                    </PageTransition>
+                } />
+                <Route path="/user/order-success" element={
+                    <PageTransition>
+                        <ProtectedRoute requiredUserType="user">
+                            <OrderSuccess /><UserBottomNav />
+                        </ProtectedRoute>
+                    </PageTransition>
+                } />
+                <Route path="/user/order-failure" element={
+                    <PageTransition>
+                        <ProtectedRoute requiredUserType="user">
+                            <OrderFailure /><UserBottomNav />
                         </ProtectedRoute>
                     </PageTransition>
                 } />

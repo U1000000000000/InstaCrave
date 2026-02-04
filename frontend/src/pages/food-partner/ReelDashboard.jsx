@@ -31,7 +31,17 @@ const ReelDashboard = () => {
     []
   );
   const { data: commentsData, loading: commentsLoading, error: commentsError, refetch: refetchComments } = useProtectedRequest(
-    () => api.get(`${API_ENDPOINTS.FOOD.COMMENT}s?foodId=${id}`),
+    async () => {
+      try {
+        return await api.get(`${API_ENDPOINTS.FOOD.COMMENT}s?foodId=${id}`);
+      } catch (err) {
+        // If 404, treat as no comments (return empty array structure)
+        if (err.response && err.response.status === 404) {
+          return { data: [] };
+        }
+        throw err;
+      }
+    },
     [id]
   );
   // Find the food item by id
@@ -99,7 +109,9 @@ const ReelDashboard = () => {
   };
 
   if (foodLoading || commentsLoading) return <LoadingSpinner fullScreen color="accent" />;
-  if (foodError || commentsError) return <div style={{color:'var(--color-danger)',padding:32}}>Error loading food item or comments.</div>;
+  if (foodError || (commentsError && (!commentsError.response || commentsError.response.status !== 404))) {
+    return <div style={{color:'var(--color-danger)',padding:32}}>Error loading food item or comments.</div>;
+  }
   if (!foodItem) return <div style={{color:'var(--color-danger)',padding:32}}>Food item not found.</div>;
   
   return (
@@ -438,10 +450,11 @@ const ReelDashboard = () => {
                       onClick={async () => {
                         setShowDeleteModal(false);
                         try {
-                          await axios.delete(`${API_BASE_URL}${API_ENDPOINTS.FOOD.BASE}/${id}`, { withCredentials: true });
+                          await api.delete(`${API_ENDPOINTS.FOOD.BASE}/${id}`);
                           window.location.href = '/food-partner/dashboard';
                         } catch (err) {
-                                                  }
+                          alert('Failed to delete food item. Please try again.');
+                        }
                       }}
                       style={{background:'var(--color-accent)',color:'#fff',border:'none',borderRadius:4,padding:'7px 18px',fontWeight:700,cursor:'pointer'}}
                     >Delete Permanently</button>

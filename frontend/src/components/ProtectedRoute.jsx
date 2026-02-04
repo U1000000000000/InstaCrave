@@ -19,17 +19,22 @@ const ProtectedRoute = ({ children, requiredUserType, fallbackPath, allowGuest =
     return <LoadingSpinner fullScreen message="Authenticating..." />;
   }
   if (status === 'unauthenticated' && !allowGuest) {
-    const loginPath = requiredUserType === USER_TYPES.FOOD_PARTNER
-      ? ROUTES.AUTH.FOOD_PARTNER_LOGIN
-      : ROUTES.AUTH.USER_LOGIN;
+    let loginPath;
+    if (requiredUserType === USER_TYPES.FOOD_PARTNER) {
+      loginPath = ROUTES.AUTH.FOOD_PARTNER_LOGIN;
+    } else {
+      loginPath = ROUTES.AUTH.USER_LOGIN;
+    }
     return <Navigate to={loginPath} replace />;
   }
 
   if (requiredUserType && userType !== requiredUserType) {
-    const defaultFallback =
-      userType === USER_TYPES.FOOD_PARTNER
-        ? ROUTES.FOOD_PARTNER.DASHBOARD
-        : ROUTES.USER.REELS;
+    let defaultFallback;
+    if (userType === USER_TYPES.FOOD_PARTNER) {
+      defaultFallback = ROUTES.FOOD_PARTNER.DASHBOARD;
+    } else {
+      defaultFallback = ROUTES.USER.REELS;
+    }
     return <Navigate to={fallbackPath || defaultFallback} replace />;
   }
 

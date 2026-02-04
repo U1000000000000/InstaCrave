@@ -26,15 +26,12 @@ const UserChangePassword = () => {
       return;
     }
     setLoading(true);
-    const { error } = await useProtectedRequest(
-      () => api.patch(API_ENDPOINTS.USER.BASE, { password }),
-      []
-    );
-    if (!error) {
+    try {
+      await api.patch(API_ENDPOINTS.USER.BASE, { password });
       setSuccess('Password changed successfully!');
       setTimeout(() => navigate(-1), 1200);
-    } else {
-      setError(error?.response?.data?.message || 'Error changing password.');
+    } catch (err) {
+      setError(err?.response?.data?.message || 'Error changing password.');
     }
     setLoading(false);
   };

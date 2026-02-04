@@ -1,11 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const authMiddleware = require("../middlewares/auth.middleware");
-const { listSessions, revokeSession } = require('../controllers/auth.controller');
 const userController = require("../controllers/user.controller");
 const validate = require('../middlewares/validate.middleware');
 const { updateProfileSchema } = require('../validation/user.validation');
 const { emptyQuerySchema, emptyParamsSchema, emptyBodySchema } = require('../validation/common.validation');
+const { cacheMiddleware, invalidateCache, userCacheKey } = require('../middlewares/cache.middleware');
 
 
 /**
@@ -35,9 +35,16 @@ const { emptyQuerySchema, emptyParamsSchema, emptyBodySchema } = require('../val
  *             schema:
  *               $ref: '#/components/schemas/User'
  */
-router.get("/", 
-    authMiddleware.authUserMiddleware, 
+router.get("/",
+    authMiddleware.authUserMiddleware,
     validate({ query: emptyQuerySchema, params: emptyParamsSchema, body: emptyBodySchema }),
+    cacheMiddleware(300, (req) => {
+        // Defensive: Handle case where req.user might not exist
+        if (!req.user || !req.user._id) {
+            return 'user:anonymous:profile';
+        }
+        return `user:${req.user._id}:profile`;
+    }),
     userController.getUser
 );
 
@@ -73,6 +80,13 @@ router.get("/",
 router.get("/comments",
     authMiddleware.authUserMiddleware,
     validate({ query: emptyQuerySchema, params: emptyParamsSchema, body: emptyBodySchema }),
+    cacheMiddleware(300, (req) => {
+        // Defensive: Handle case where req.user might not exist
+        if (!req.user || !req.user._id) {
+            return 'user:anonymous:comments';
+        }
+        return `user:${req.user._id}:comments`;
+    }),
     userController.getComments
 );
 
@@ -108,6 +122,13 @@ router.get("/comments",
 router.get("/follows",
     authMiddleware.authUserMiddleware,
     validate({ query: emptyQuerySchema, params: emptyParamsSchema, body: emptyBodySchema }),
+    cacheMiddleware(300, (req) => {
+        // Defensive: Handle case where req.user might not exist
+        if (!req.user || !req.user._id) {
+            return 'user:anonymous:follows';
+        }
+        return `user:${req.user._id}:follows`;
+    }),
     userController.getFollowing
 );
 
@@ -143,6 +164,13 @@ router.get("/follows",
 router.get("/likes",
     authMiddleware.authUserMiddleware,
     validate({ query: emptyQuerySchema, params: emptyParamsSchema, body: emptyBodySchema }),
+    cacheMiddleware(300, (req) => {
+        // Defensive: Handle case where req.user might not exist
+        if (!req.user || !req.user._id) {
+            return 'user:anonymous:likes';
+        }
+        return `user:${req.user._id}:likes`;
+    }),
     userController.getLikes
 );
 
@@ -189,84 +217,10 @@ router.get("/likes",
 router.patch("/",
     authMiddleware.authUserMiddleware,
     validate({ body: updateProfileSchema, query: emptyQuerySchema, params: emptyParamsSchema }),
+    invalidateCache(
+        (req) => `user:${req.user._id}:*`
+    ),
     userController.editUser
 );
-
-/**
- * @swagger
- * /api/v1/user/sessions:
- *   get:
- *     summary: List active sessions for current user (per-device/session management)
- *     tags: [User]
- *     security:
- *       - bearerAuth: []
- *     description: |
- *       This endpoint is rate limited per user. Limits are dynamic based on user role:
- *       - Food partners: 5000 requests/hour
- *       - Regular users: 2000 requests/hour
- *
- *       Standard rate limit headers are returned:
- *       - X-RateLimit-Limit
- *       - X-RateLimit-Remaining
- *       - X-RateLimit-Reset
- *
- *       If the limit is exceeded, a 429 error is returned.
- *     responses:
- *       200:
- *         description: Active sessions listed successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 data:
- *                   type: array
- *                   items:
- *                     $ref: '#/components/schemas/Session'
- *                 message:
- *                   type: string
- *                   example: Active sessions listed successfully
- */
-router.get('/sessions', authMiddleware.authUserMiddleware, listSessions);
-
-/**
- * @swagger
- * /api/v1/auth/sessions/{sessionId}:
- *   delete:
- *     summary: Revoke a session by sessionId (logout from device)
- *     tags: [Auth]
- *     security:
- *       - bearerAuth: []
- *     description: |
- *       This endpoint is rate limited per user. Limits are dynamic based on user role:
- *       - Food partners: 5000 requests/hour
- *       - Regular users: 2000 requests/hour
- *
- *       Standard rate limit headers are returned:
- *       - X-RateLimit-Limit
- *       - X-RateLimit-Remaining
- *       - X-RateLimit-Reset
- *
- *       If the limit is exceeded, a 429 error is returned.
- *     parameters:
- *       - in: path
- *         name: sessionId
- *         required: true
- *         schema:
- *           type: string
- *         description: The session ID to revoke
- *     responses:
- *       200:
- *         description: Session revoked successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: Session revoked successfully
- */
-router.delete('/sessions/:sessionId', authMiddleware.authUserMiddleware, revokeSession);
 
 module.exports = router;

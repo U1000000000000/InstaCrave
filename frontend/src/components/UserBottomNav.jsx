@@ -1,11 +1,14 @@
 import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { FiHome, FiSearch, FiVideo, FiUser } from 'react-icons/fi';
+import { FiHome, FiSearch, FiVideo, FiUser, FiShoppingCart } from 'react-icons/fi';
+import { MdDeliveryDining } from 'react-icons/md';
 import { useAuth } from '../context/AuthContext';
+import { useCart } from '../context/CartContext';
 import '../styles/bottom-nav.css';
 
 const UserBottomNav = () => {
   const { isAuthenticated } = useAuth();
+  const { cart } = useCart();
   const navigate = useNavigate();
 
   const handleNavClick = (e, path) => {
@@ -47,25 +50,34 @@ const UserBottomNav = () => {
           </span>
         </NavLink>
         <NavLink 
-          to="/user/profile" 
+          to="/user/cart" 
           className={({ isActive }) => `bottom-nav__item ${isActive ? 'is-active' : ''}`}
-          onClick={(e) => handleNavClick(e, '/user/profile')}
+          onClick={(e) => handleNavClick(e, '/user/cart')}
         >
-          <span className="bottom-nav__icon" aria-hidden="true">
-            <FiUser />
+          <span className="bottom-nav__icon cart-icon" aria-hidden="true">
+            <FiShoppingCart />
+            {cart.itemCount > 0 && (
+              <span className="cart-badge">{cart.itemCount > 99 ? '99+' : cart.itemCount}</span>
+            )}
           </span>
         </NavLink>
+
         <NavLink 
           to="/user/orders" 
           className={({ isActive }) => `bottom-nav__item ${isActive ? 'is-active' : ''}`}
           onClick={(e) => handleNavClick(e, '/user/orders')}
         >
           <span className="bottom-nav__icon" aria-hidden="true">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="9" cy="21" r="1.5"/>
-              <circle cx="19" cy="21" r="1.5"/>
-              <path d="M2.5 4H5l2.5 13h11l2-8H7"/>
-            </svg>
+            <MdDeliveryDining />
+          </span>
+        </NavLink>
+        <NavLink 
+          to="/user/profile" 
+          className={({ isActive }) => `bottom-nav__item ${isActive ? 'is-active' : ''}`}
+          onClick={(e) => handleNavClick(e, '/user/profile')}
+        >
+          <span className="bottom-nav__icon" aria-hidden="true">
+            <FiUser />
           </span>
         </NavLink>
       </div>

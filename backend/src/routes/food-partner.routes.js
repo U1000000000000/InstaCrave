@@ -1,12 +1,12 @@
 const express = require('express');
 const foodPartnerController = require("../controllers/food-partner.controller");
 const authMiddleware = require("../middlewares/auth.middleware");
-const { listSessions, revokeSession } = require('../controllers/auth.controller');
 const { upload, validateFileSignature } = require('../middlewares/fileUpload.middleware');
 const validate = require('../middlewares/validate.middleware');
 const { editFoodPartnerSchema } = require('../validation/food-partner.validation');
 const { objectIdSchema, emptyQuerySchema, emptyParamsSchema, emptyBodySchema } = require('../validation/common.validation');
 const { followFoodPartnerSchema } = require('../validation/follow.validation');
+const { cacheMiddleware, invalidateCache, partnerCacheKey, publicCacheKey } = require('../middlewares/cache.middleware');
 
 const router = express.Router();
 
@@ -60,6 +60,7 @@ router.get(
     "/:id",
     authMiddleware.authUserMiddleware,
     validate({ params: objectIdSchema, query: emptyQuerySchema, body: emptyBodySchema }),
+    cacheMiddleware(600, (req) => `partner:${req.params.id}:profile`),
     foodPartnerController.getFoodPartnerById
 )
 
@@ -101,6 +102,13 @@ router.get(
 router.get("/",
     authMiddleware.authFoodPartnerMiddleware,
     validate({ query: emptyQuerySchema, params: emptyParamsSchema, body: emptyBodySchema }),
+    cacheMiddleware(300, (req) => {
+        // Defensive: Handle case where req.user might not exist
+        if (!req.user || !req.user._id) {
+            return 'partner:anonymous:profile';
+        }
+        return `partner:${req.user._id}:profile`;
+    }),
     foodPartnerController.getFoodPartner
 );
 
@@ -154,6 +162,10 @@ router.post(
     "/follow",
     authMiddleware.authUserMiddleware,
     validate({ body: followFoodPartnerSchema, query: emptyQuerySchema, params: emptyParamsSchema }),
+    invalidateCache(
+        (req) => `partner:${req.body.foodpartner}:*`,
+        (req) => `user:${req.user._id}:*`
+    ),
     foodPartnerController.followFoodPartner
 );
     
@@ -206,84 +218,11 @@ router.patch("/edit",
     upload.single("profile"),
     validateFileSignature,
     validate({ body: editFoodPartnerSchema, query: emptyQuerySchema, params: emptyParamsSchema }),
+    invalidateCache(
+        (req) => `partner:${req.user._id}:*`
+    ),
     foodPartnerController.editFoodPartner
 );
 
-/**
- * @swagger
- * /api/v1/food-partner/sessions:
- *   get:
- *     summary: List active sessions for current food partner (per-device/session management)
- *     tags: [FoodPartner]
- *     security:
- *       - bearerAuth: []
- *     description: |
- *       This endpoint is rate limited per user. Limits are dynamic based on user role:
- *       - Food partners: 5000 requests/hour
- *       - Regular users: 2000 requests/hour
- *
- *       Standard rate limit headers are returned:
- *       - X-RateLimit-Limit
- *       - X-RateLimit-Remaining
- *       - X-RateLimit-Reset
- *
- *       If the limit is exceeded, a 429 error is returned.
- *     responses:
- *       200:
- *         description: Active sessions listed successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 data:
- *                   type: array
- *                   items:
- *                     $ref: '#/components/schemas/Session'
- *                 message:
- *                   type: string
- *                   example: Active sessions listed successfully
- */
-router.get('/sessions', authMiddleware.authFoodPartnerMiddleware, listSessions);
-
-/**
- * @swagger
- * /api/v1/auth/sessions/{sessionId}:
- *   delete:
- *     summary: Revoke a session by sessionId (logout from device)
- *     tags: [Auth]
- *     security:
- *       - bearerAuth: []
- *     description: |
- *       This endpoint is rate limited per user. Limits are dynamic based on user role:
- *       - Food partners: 5000 requests/hour
- *       - Regular users: 2000 requests/hour
- *
- *       Standard rate limit headers are returned:
- *       - X-RateLimit-Limit
- *       - X-RateLimit-Remaining
- *       - X-RateLimit-Reset
- *
- *       If the limit is exceeded, a 429 error is returned.
- *     parameters:
- *       - in: path
- *         name: sessionId
- *         required: true
- *         schema:
- *           type: string
- *         description: The session ID to revoke
- *     responses:
- *       200:
- *         description: Session revoked successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: Session revoked successfully
- */
-router.delete('/sessions/:sessionId', authMiddleware.authFoodPartnerMiddleware, revokeSession);
 
 module.exports = router;

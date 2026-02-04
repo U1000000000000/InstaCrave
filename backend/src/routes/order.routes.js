@@ -5,6 +5,7 @@ const { createOrderSchema, updateOrderStatusSchema } = require('../validation/or
 const { emptyQuerySchema, emptyParamsSchema, emptyBodySchema } = require('../validation/common.validation');
 const { objectIdSchema } = require('../validation/common.validation');
 const authMiddleware = require('../middlewares/auth.middleware');
+const { cacheMiddleware, invalidateCache, userCacheKey, partnerCacheKey } = require('../middlewares/cache.middleware');
 
 const router = express.Router();
 
@@ -48,6 +49,10 @@ const router = express.Router();
 router.post('/',
 	authMiddleware.authUserMiddleware,
 	validate({ body: createOrderSchema, query: emptyQuerySchema, params: emptyParamsSchema }),
+	invalidateCache(
+		(req) => `user:${req.user._id}:orders:*`,
+		(req) => `partner:*:orders:*`
+	),
 	createOrder
 );
 
@@ -79,9 +84,17 @@ router.post('/',
  *         description: Unauthorized
  */
 router.get('/', 
-	authMiddleware.authUserMiddleware, 
-	validate({ query: emptyQuerySchema, params: emptyParamsSchema, body: emptyBodySchema }),
-	getUserOrders);
+    authMiddleware.authUserMiddleware,
+    validate({ query: emptyQuerySchema, params: emptyParamsSchema, body: emptyBodySchema }),
+    cacheMiddleware(60, (req) => {
+        // Defensive: Handle case where req.user might not exist
+        if (!req.user || !req.user._id) {
+            return 'user:anonymous:orders:list';
+        }
+        return `user:${req.user._id}:orders:list`;
+    }),
+    getUserOrders
+);
 
 /**
  * @swagger
@@ -120,9 +133,16 @@ router.get('/',
  *         description: Unauthorized
  */
 router.get('/partner', 
-	authMiddleware.authFoodPartnerMiddleware,
-	validate({ query: emptyQuerySchema, params: emptyParamsSchema, body: emptyBodySchema }),
-	getPartnerOrders
+    authMiddleware.authFoodPartnerMiddleware,
+    validate({ query: emptyQuerySchema, params: emptyParamsSchema, body: emptyBodySchema }),
+    cacheMiddleware(60, (req) => {
+        // Defensive: Handle case where req.user might not exist
+        if (!req.user || !req.user._id) {
+            return 'partner:anonymous:orders:list';
+        }
+        return `partner:${req.user._id}:orders:list`;
+    }),
+    getPartnerOrders
 );
 
 /**
@@ -181,6 +201,10 @@ router.patch(
 	'/:id/status',
 	authMiddleware.authFoodPartnerMiddleware,
 	validate({ params: objectIdSchema, body: updateOrderStatusSchema, query: emptyQuerySchema }),
+	invalidateCache(
+		(req) => `user:*:orders:*`,
+		(req) => `partner:${req.user._id}:orders:*`
+	),
 	updateOrderStatus
 );
 

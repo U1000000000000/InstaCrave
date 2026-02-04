@@ -2,7 +2,6 @@
 const mongoose = require('mongoose');
 
 const argon2 = require('argon2');
-const audit = require('../services/audit.service');
 
 
 
@@ -53,14 +52,6 @@ userSchema.pre('save', async function (next) {
             timeCost,
             parallelism,
         });
-        // Audit log for password change (only if not new)
-        if (!this.isNew && this._id) {
-            await audit.logEvent('passwordChange', {
-                userId: this._id,
-                userType: 'User',
-                // IP and userAgent should be passed in context (see controller for details)
-            });
-        }
         next();
     } catch (err) {
         next(err);

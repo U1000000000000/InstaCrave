@@ -29,10 +29,10 @@ module.exports = async () => {
   process.env.ARGON2_PARALLELISM = '1';     // 1 thread instead of 2
 
   // Mock external service URLs
-  process.env.FRONTEND_URL = 'http://localhost:5173';
-  process.env.IMAGEKIT_PUBLIC_KEY = 'test-public-key';
-  process.env.IMAGEKIT_PRIVATE_KEY = 'test-private-key';
-  process.env.IMAGEKIT_URL_ENDPOINT = 'https://ik.imagekit.io/test';
+  process.env.FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
+  process.env.IMAGEKIT_PUBLIC_KEY = process.env.IMAGEKIT_PUBLIC_KEY || 'test-public-key';
+  process.env.IMAGEKIT_PRIVATE_KEY = process.env.IMAGEKIT_PRIVATE_KEY || 'test-private-key';
+  process.env.IMAGEKIT_URL_ENDPOINT = process.env.IMAGEKIT_URL_ENDPOINT || 'https://ik.imagekit.io/test';
 
   console.log('✅ MongoDB Memory Server started:', uri);
 };

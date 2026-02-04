@@ -6,6 +6,8 @@ const saveModel = require("../models/save.model");
 const commentModel = require("../models/comment.model");
 const foodModel = require("../models/food.model");
 const foodPartnerModel = require("../models/foodpartner.model");
+const analyticsService = require("../services/analytics.service");
+const logger = require("../services/logger.service");
 
 const catchAsync = require("../utils/catchAsync");
 const AppError = require("../utils/AppError");
@@ -45,6 +47,19 @@ const getUser = catchAsync(async (req, res) => {
       comment: comment.comment,
     }));
 
+  // Track analytics
+  await analyticsService.trackEvent({
+    eventType: 'user:profile_viewed',
+    userId: user._id.toString(),
+    userType: 'User',
+    data: {
+      likedCount: likedFoods.length,
+      followingCount: following.length,
+      commentsCount: comments.length,
+    },
+    request: req,
+  }).catch(err => logger.error('Failed to track profile view', { error: err.message }));
+
   responseUtil.sendItemResponse(res, {
     data: {
       _id: user._id,
@@ -67,6 +82,18 @@ const getComments = catchAsync(async (req, res) => {
       select: "name profileImage",
     },
   });
+
+  // Track analytics
+  await analyticsService.trackEvent({
+    eventType: 'user:comments_viewed',
+    userId: user._id.toString(),
+    userType: 'User',
+    data: {
+      commentsCount: comments?.length || 0,
+    },
+    request: req,
+  }).catch(err => logger.error('Failed to track comments view', { error: err.message }));
+
   responseUtil.sendListResponse(res, {
     data: comments || [],
     message: comments && comments.length > 0 ? "Comments fetched successfully" : "No comments found",
@@ -78,10 +105,21 @@ const getFollowing = catchAsync(async (req, res) => {
   const following = await followModel
     .find({ user: user._id })
     .populate("foodpartner");
-  if (!following || following.length === 0) throw new AppError("No following food partners found", 404);
+
+  // Track analytics
+  await analyticsService.trackEvent({
+    eventType: 'user:following_viewed',
+    userId: user._id.toString(),
+    userType: 'User',
+    data: {
+      followingCount: following?.length || 0,
+    },
+    request: req,
+  }).catch(err => logger.error('Failed to track following view', { error: err.message }));
+
   responseUtil.sendListResponse(res, {
-    data: following.map((follow) => follow.foodpartner),
-    message: "Following food partners fetched successfully",
+    data: following?.map((follow) => follow.foodpartner) || [],
+    message: following && following.length > 0 ? "Following food partners fetched successfully" : "No follows found",
   });
 });
 
@@ -96,6 +134,18 @@ const getLikes = catchAsync(async (req, res) => {
     },
   });
   if (!likes || likes.length === 0) throw new AppError("No likes found", 404);
+
+  // Track analytics
+  await analyticsService.trackEvent({
+    eventType: 'user:likes_viewed',
+    userId: user._id.toString(),
+    userType: 'User',
+    data: {
+      likesCount: likes.length,
+    },
+    request: req,
+  }).catch(err => logger.error('Failed to track likes view', { error: err.message }));
+
   responseUtil.sendListResponse(res, {
     data: likes,
     message: "Likes fetched successfully",
@@ -109,16 +159,35 @@ const editUser = catchAsync(async (req, res) => {
   const updateKeys = Object.keys(updateFields);
   if (updateKeys.length !== 1) throw new AppError("Please send exactly one field to update.", 400);
   if (!allowedFields.includes(updateKeys[0])) throw new AppError(`Cannot update field: ${updateKeys[0]}`, 400);
-  if (updateFields.fullName) {
+
+  let updatedUser;
+  if (updateFields.password) {
+    // Secure: fetch, set, save (triggers hashing)
+    updatedUser = await userModel.findById(userId);
+    if (!updatedUser) throw new AppError("User not found", 404);
+    updatedUser.password = updateFields.password;
+    await updatedUser.save();
+  } else if (updateFields.fullName) {
     updateFields.fullName = sanitizeHtml(updateFields.fullName, { allowedTags: [], allowedAttributes: {} });
+    updatedUser = await userModel.findByIdAndUpdate(
+      userId,
+      { $set: { fullName: updateFields.fullName } },
+      { new: true }
+    );
+    if (!updatedUser) throw new AppError("User not found", 404);
   }
-  // Password will be hashed by model pre-save hook
-  const updatedUser = await userModel.findByIdAndUpdate(
-    userId,
-    { $set: updateFields },
-    { new: true }
-  );
-  if (!updatedUser) throw new AppError("User not found", 404);
+
+  // Track analytics
+  await analyticsService.trackEvent({
+    eventType: 'user:profile_updated',
+    userId: updatedUser._id.toString(),
+    userType: 'User',
+    data: {
+      fieldUpdated: updateKeys[0],
+    },
+    request: req,
+  }).catch(err => logger.error('Failed to track profile update', { error: err.message }));
+
   responseUtil.sendItemResponse(res, {
     data: {
       id: updatedUser.id,

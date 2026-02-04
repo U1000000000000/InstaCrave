@@ -2,6 +2,10 @@ const express = require('express');
 const router = express.Router();
 const authMiddleware = require("../middlewares/auth.middleware");
 const searchController = require("../controllers/search.controller");
+const validate = require('../middlewares/validate.middleware');
+const { emptyQuerySchema, emptyBodySchema, emptyParamsSchema } = require('../validation/common.validation');
+const { searchQuerySchema } = require('../validation/search.validation');
+const { cacheMiddleware, publicCacheKey } = require('../middlewares/cache.middleware');
 
 /**
  * @swagger
@@ -63,7 +67,25 @@ const searchController = require("../controllers/search.controller");
  *         description: Unauthorized
  */
 router.get("/", 
-	authMiddleware.authUserMiddleware, 
+	authMiddleware.authUserMiddleware,
+	validate({ query: searchQuerySchema, body: emptyBodySchema, params: emptyParamsSchema }),
+	cacheMiddleware(
+		180,
+		(req) => {
+			const query = req.query.query || '';
+			const type = req.query.type || 'all';
+			return `search:q=${query}:type=${type}`;
+		},
+		{
+			shouldCache: (req, res, data) => {
+				// Don't cache empty results
+				return data && data.data && (
+					(data.data.foodItems && data.data.foodItems.length > 0) ||
+					(data.data.foodPartners && data.data.foodPartners.length > 0)
+				);
+			}
+		}
+	),
 	searchController.search
 );
 
@@ -103,6 +125,14 @@ router.get("/",
  */
 router.get("/explore",
 	authMiddleware.authUserMiddleware,
+	validate({ query: emptyQuerySchema, body: emptyBodySchema, params: emptyParamsSchema }),
+	cacheMiddleware(180, (req) => {
+		// Defensive: Handle case where req.user might not exist
+		if (!req.user || !req.user._id) {
+			return 'user:anonymous:explore';
+		}
+		return `user:${req.user._id}:explore`;
+	}),
 	searchController.explore
 );
 

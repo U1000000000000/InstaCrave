@@ -8,9 +8,13 @@ import { API_BASE_URL } from '../../config';
 import { API_ENDPOINTS } from '../../constants';
 import { useAuth } from '../../context/AuthContext';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import { useAnalytics } from '../../hooks/useAnalytics';
+import { showError } from '../../utils/toast';
 
 const UserHome = () => {
   const { isAuthenticated, loading: authLoading } = useAuth();
+  const analytics = useAnalytics();
+  
   function commentVideo(item) {}
   const [videos, setVideos] = useState([]);
   const [dataLoading, setDataLoading] = useState(true);
@@ -19,6 +23,7 @@ const UserHome = () => {
     () => api.get(API_ENDPOINTS.FOOD.FOLLOWED),
     [authLoading, isAuthenticated]
   );
+  
   useEffect(() => {
     if (!authLoading && isAuthenticated && data) {
       const feedItems = data?.data || [];
@@ -31,29 +36,75 @@ const UserHome = () => {
     }
   }, [authLoading, isAuthenticated, data]);
 
-  async function likeVideo(item) {
-    const { data } = await useProtectedRequest(
-      () => api.post(API_ENDPOINTS.FOOD.LIKE, { foodId: item._id }),
-      []
-    );
-    if (data) {
-      setVideos(prev => prev.map(v => v._id === item._id ? { ...v, likeCount: v.likeCount + 1, isLiked: true } : v));
-    } else {
-      setVideos(prev => prev.map(v => v._id === item._id ? { ...v, likeCount: v.likeCount - 1, isLiked: false } : v));
-    }
-  }
+  useEffect(() => {
+    analytics.trackPageView('User Home - Following Feed');
+  }, []);
 
-  async function saveVideo(item) {
-    const { data } = await useProtectedRequest(
-      () => api.post(API_ENDPOINTS.FOOD.SAVE, { foodId: item._id }),
-      []
-    );
-    if (data) {
-      setVideos(prev => prev.map(v => v._id === item._id ? { ...v, savesCount: v.savesCount + 1 } : v));
-    } else {
-      setVideos(prev => prev.map(v => v._id === item._id ? { ...v, savesCount: v.savesCount - 1 } : v));
+  // Fixed like functionality with optimistic updates
+  const likeVideo = async (item) => {
+    // Optimistic update
+    const wasLiked = item.isLiked;
+    setVideos(prev => prev.map(v => 
+      v._id === item._id 
+        ? { 
+            ...v, 
+            isLiked: !wasLiked,
+            likeCount: wasLiked ? Math.max(0, v.likeCount - 1) : (v.likeCount || 0) + 1
+          } 
+        : v
+    ));
+
+    try {
+      await api.post(API_ENDPOINTS.FOOD.LIKE, { foodId: item._id });
+      // Track analytics
+      analytics.trackFoodLike(item._id, !wasLiked);
+    } catch (error) {
+      // Rollback on error
+      setVideos(prev => prev.map(v => 
+        v._id === item._id 
+          ? { 
+              ...v, 
+              isLiked: wasLiked,
+              likeCount: wasLiked ? (v.likeCount || 0) + 1 : Math.max(0, v.likeCount - 1)
+            } 
+          : v
+      ));
+      showError('Failed to update like. Please try again.');
     }
-  }
+  };
+
+  // Fixed save functionality with optimistic updates
+  const saveVideo = async (item) => {
+    // Optimistic update
+    const wasSaved = item.isSaved;
+    setVideos(prev => prev.map(v => 
+      v._id === item._id 
+        ? { 
+            ...v, 
+            isSaved: !wasSaved,
+            savesCount: wasSaved ? Math.max(0, (v.savesCount || 1) - 1) : (v.savesCount || 0) + 1
+          } 
+        : v
+    ));
+
+    try {
+      await api.post(API_ENDPOINTS.FOOD.SAVE, { foodId: item._id });
+      // Track analytics
+      analytics.trackFoodSave(item._id, !wasSaved);
+    } catch (error) {
+      // Rollback on error
+      setVideos(prev => prev.map(v => 
+        v._id === item._id 
+          ? { 
+              ...v, 
+              isSaved: wasSaved,
+              savesCount: wasSaved ? (v.savesCount || 0) + 1 : Math.max(0, (v.savesCount || 1) - 1)
+            } 
+          : v
+      ));
+      showError('Failed to update save. Please try again.');
+    }
+  };
 
     if (authLoading || dataLoading) {
     return <LoadingSpinner fullScreen color="accent" message="Loading your feed..." />;

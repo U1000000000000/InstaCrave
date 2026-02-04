@@ -10,6 +10,7 @@ const foodModel = require('../../src/models/food.model');
 const orderModel = require('../../src/models/order.model');
 const tokenService = require('../../src/services/token.service');
 const Session = require('../../src/models/session.model');
+const cacheService = require('../../src/services/cache.service');
 
 // Connect to database before each test file
 beforeAll(async () => {
@@ -18,13 +19,20 @@ beforeAll(async () => {
   }
 });
 
-// Clean up database after each test
+// Clean up database and cache after each test
 afterEach(async () => {
   if (mongoose.connection.readyState !== 0) {
     const collections = mongoose.connection.collections;
     for (const key in collections) {
       await collections[key].deleteMany({});
     }
+  }
+  // Flush cache to ensure clean state between tests
+  try {
+    await cacheService.flushAll();
+  } catch (error) {
+    // Ignore cache errors in test cleanup
+    console.warn('Cache flush failed in test cleanup:', error.message);
   }
 });
 

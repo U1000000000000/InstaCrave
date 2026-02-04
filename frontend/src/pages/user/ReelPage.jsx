@@ -98,7 +98,7 @@ const ReelPage = () => {
   return (
     <div>
       <ReelFeed
-        reels={reels}
+        items={reels}
         loading={loading}
         showNotFound={showNotFound}
         onLike={handleLike}

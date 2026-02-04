@@ -26,18 +26,20 @@ describe('Security Integration Tests', () => {
       expect(response.headers['access-control-allow-credentials']).toBe('true');
     });
 
-    it('should allow requests from localhost:5173 in development', async () => {
-      const response = await request(app)
-        .post('/api/v1/auth/user/register')
-        .set('Origin', 'http://localhost:5173')
-        .send({
-          fullName: 'CORS Test 2',
-          email: `cors2-${Date.now()}@test.com`,
-          password: 'password123'
-        })
-        .expect(200);
+      it('should allow requests from local frontend origin in development', async () => {
+        const localOrigin = process.env.FRONTEND_URL_LOCAL || 'http://localhost:5173';
+        const response = await request(app)
+          .post('/api/v1/auth/user/register')
+          .set('Origin', localOrigin)
+          .send({
+            fullName: 'CORS Test 2',
+            email: `cors2-${Date.now()}@test.com`,
+            password: 'password123'
+          })
+          .expect(200);
 
-      expect(response.headers['access-control-allow-origin']).toBe('http://localhost:5173');
+        expect(response.headers['access-control-allow-origin']).toBe(localOrigin);
+        expect(response.headers['access-control-allow-credentials']).toBe('true');
     });
 
     it('should reject requests from unauthorized origins', async () => {

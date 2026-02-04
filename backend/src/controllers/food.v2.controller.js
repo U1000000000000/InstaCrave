@@ -5,11 +5,12 @@ const likeModel = require("../models/likes.model");
 const saveModel = require("../models/save.model");
 const commentModel = require("../models/comment.model");
 const followModel = require("../models/follow.model");
-const { v4: uuid } = require("uuid");
+const { uuidv4: uuid } = require("../utils/uuid");
 const catchAsync = require("../utils/catchAsync");
 const AppError = require("../utils/AppError");
 const { parseQuery } = require("../utils/query");
 const responseUtil = require("../utils/response");
+const { escapeRegex, normalizeSearchText } = require('../utils/regex');
 
 const sanitizeHtml = require('sanitize-html');
 
@@ -20,7 +21,8 @@ const getFoodItems = catchAsync(async (req, res) => {
 
   // Support partial matching for name filter
   if (filters.name) {
-    filters.name = { $regex: filters.name, $options: 'i' };
+    const normalizedName = normalizeSearchText(filters.name, { maxLength: 100 });
+    filters.name = { $regex: escapeRegex(normalizedName), $options: 'i' };
   }
 
   const [foodItems, total] = await Promise.all([

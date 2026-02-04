@@ -202,7 +202,7 @@ describe('Authentication Integration Tests', () => {
       const { accessToken } = generateAuthTokens(user._id, 'user');
 
       const res = await request(app)
-        .get('/api/v1/auth/user/logout')
+        .post('/api/v1/auth/user/logout')
         .set('Cookie', `accessToken=${accessToken}`);
 
       expect(res.status).toBe(200);
@@ -215,7 +215,7 @@ describe('Authentication Integration Tests', () => {
       const { accessToken } = generateAuthTokens(user._id, 'user');
 
       const res = await request(app)
-        .get('/api/v1/auth/user/logout')
+        .post('/api/v1/auth/user/logout')
         .set('Cookie', `accessToken=${accessToken}`);
 
       const cookies = res.headers['set-cookie'];
@@ -408,7 +408,7 @@ describe('Authentication Integration Tests', () => {
       await createTestSession(user._id, 'User', refreshToken);
 
       const res = await request(app)
-        .get('/api/v1/user/sessions')
+        .get('/api/v1/auth/sessions')
         .set('Cookie', `accessToken=${accessToken}`);
 
       expect(res.status).toBe(200);
@@ -422,7 +422,7 @@ describe('Authentication Integration Tests', () => {
       const session = await createTestSession(user._id, 'User', refreshToken);
 
       const res = await request(app)
-        .delete(`/api/v1/user/sessions/${session._id}`)
+        .delete(`/api/v1/auth/sessions/${session._id}`)
         .set('Cookie', `accessToken=${accessToken}`);
 
       expect(res.status).toBe(200);

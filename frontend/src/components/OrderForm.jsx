@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { v4 as uuidv4 } from 'uuid';
 import api from '../services/api';
 import { API_ENDPOINTS } from '../constants';
 
@@ -16,10 +17,14 @@ const OrderForm = ({ food, onClose, onOrderPlaced }) => {
     setLoading(true);
     setError('');
     try {
+      // Generate unique idempotency key for this order
+      const idempotencyKey = uuidv4();
+      
       const res = await api.post(API_ENDPOINTS.ORDERS.CREATE, {
         foodId: food._id,
         quantity,
         deliveryAddress,
+        idempotencyKey,
       });
       if (res?.data?.data) {
         setSuccess(true);

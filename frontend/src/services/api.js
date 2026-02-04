@@ -189,15 +189,15 @@ export const authApi = {
    */
   logout: async () => {
     try {
-      await api.get(API_ENDPOINTS.AUTH.USER_LOGOUT);
+      await api.post(API_ENDPOINTS.AUTH.USER_LOGOUT);
     } catch {}
     try {
-      await api.get(API_ENDPOINTS.AUTH.FOOD_PARTNER_LOGOUT);
+      await api.post(API_ENDPOINTS.AUTH.FOOD_PARTNER_LOGOUT);
     } catch {}
   },
 
-  logoutUser: () => api.get(API_ENDPOINTS.AUTH.USER_LOGOUT),
-  logoutFoodPartner: () => api.get(API_ENDPOINTS.AUTH.FOOD_PARTNER_LOGOUT),
+  logoutUser: () => api.post(API_ENDPOINTS.AUTH.USER_LOGOUT),
+  logoutFoodPartner: () => api.post(API_ENDPOINTS.AUTH.FOOD_PARTNER_LOGOUT),
 };
 
 /**

@@ -1,7 +1,7 @@
 # Rate Limiting Strategy
 
 ## Overview
-This backend uses advanced, industry-grade rate limiting to protect APIs from abuse and ensure fair usage. Rate limiting is enforced using Redis-backed stores and express-rate-limit middleware.
+This backend uses rate limiting to protect APIs from abuse and ensure fair usage. Rate limiting is enforced using Redis-backed stores and express-rate-limit middleware.
 
 ## Limiters
 - **Global Limiter:** Applied to public endpoints (`/api/v1/auth`, `/api/v1/search`). Limits requests per IP.

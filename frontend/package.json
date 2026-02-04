@@ -11,15 +11,21 @@
   },
   "dependencies": {
     "axios": "^1.11.0",
+    "chart.js": "^4.5.1",
     "framer-motion": "^12.23.24",
     "lodash.isequal": "^4.5.0",
     "lucide-react": "^0.544.0",
     "node-vibrant": "^4.0.3",
     "prop-types": "^15.8.1",
     "react": "^19.1.1",
+    "react-chartjs-2": "^5.3.1",
     "react-dom": "^19.1.1",
+    "react-hot-toast": "^2.6.0",
     "react-icons": "^5.5.0",
-    "react-router-dom": "^7.8.0"
+    "react-router-dom": "^7.8.0",
+    "recharts": "^3.7.0",
+    "socket.io-client": "^4.8.3",
+    "uuid": "^13.0.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.33.0",

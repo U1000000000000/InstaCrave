@@ -1,21 +1,12 @@
-// Advanced rate limiter middleware using express-rate-limit and Redis
+// Rate limiter middleware using express-rate-limit with Redis store
 const rateLimit = require('express-rate-limit');
 const RedisStore = require('rate-limit-redis').default;
 const { ipKeyGenerator } = require('express-rate-limit');
-const Redis = require('ioredis');
+const { cache } = require('../services/redis.service');
+const logger = require('../services/logger.service');
 
-// Create a Redis client with retry/backoff (skip in test environment)
-let redisClient = null;
-if (process.env.NODE_ENV !== 'test') {
-  redisClient = new Redis({
-    host: process.env.REDIS_HOST || '127.0.0.1',
-    username: 'default', 
-    port: process.env.REDIS_PORT || 6379,
-    password: process.env.REDIS_PASSWORD || undefined,
-    enableOfflineQueue: true,
-    retryStrategy: (times) => Math.min(times * 50, 2000),
-  });
-}
+// Use the shared Redis client from redis.service.js
+const redisClient = (process.env.NODE_ENV !== 'test') ? cache.client : null;
 
 // Global API limiter (per IP)
 const globalLimiterOptions = {
@@ -27,11 +18,16 @@ const globalLimiterOptions = {
   keyGenerator: ipKeyGenerator,
   handler: (req, res) => {
     // Structured logging for rate limit hits
-
     console.warn('[RateLimit][GLOBAL]', {
       route: req.originalUrl,
       ip: req.ip,
-      userId: req.user?.id || null
+      userId: req.user?.id || null,
+    });
+
+    logger.security('Global rate limit exceeded', {
+      route: req.originalUrl,
+      ip: req.ip,
+      userId: req.user?.id || null,
     });
 
     res.status(429).json({
@@ -50,10 +46,18 @@ if (redisClient) {
 
 const globalLimiter = rateLimit(globalLimiterOptions);
 
-// Login limiter (per IP)
+
+// Login limiter (per IP, relaxed for localhost/test IPs in dev)
 const loginLimiterOptions = {
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10,
+  max: (req, res) => {
+    // Allow much higher rate for localhost/test IPs in non-production
+    const isLocal = req.ip === '::1' || req.ip === '127.0.0.1' || req.ip === '::ffff:127.0.0.1';
+    if (process.env.NODE_ENV !== 'production' && isLocal) {
+      return 10000; // Effectively disables rate limit for local load testing
+    }
+    return 10;
+  },
   standardHeaders: true,
   legacyHeaders: false,
   skipFailedRequests: false, // Fail closed for auth endpoints
@@ -62,7 +66,13 @@ const loginLimiterOptions = {
     console.warn('[RateLimit][LOGIN]', {
       route: req.originalUrl,
       ip: req.ip,
-      userId: req.user?.id || null
+      userId: req.user?.id || null,
+    });
+
+    logger.security('Login rate limit exceeded', {
+      route: req.originalUrl,
+      ip: req.ip,
+      userId: req.user?.id || null,
     });
 
     res.status(429).json({
@@ -95,7 +105,13 @@ const refreshLimiterOptions = {
     console.warn('[RateLimit][REFRESH]', {
       route: req.originalUrl,
       ip: req.ip,
-      userId: req.user?.id || null
+      userId: req.user?.id || null,
+    });
+
+    logger.security('Refresh token rate limit exceeded', {
+      route: req.originalUrl,
+      ip: req.ip,
+      userId: req.user?.id || null,
     });
 
     res.status(429).json({
@@ -136,6 +152,13 @@ const userLimiter = (options = {}) => {
         role: req.user?.role || 'UNKNOWN',
       });
 
+      logger.security('User action rate limit exceeded', {
+        route: req.originalUrl,
+        ip: req.ip,
+        userId: req.user?.id || null,
+        role: req.user?.role || 'UNKNOWN',
+      });
+
       res.status(429).json({
         message: 'Too many requests, please try again later.'
       });
@@ -152,10 +175,97 @@ const userLimiter = (options = {}) => {
   return rateLimit(limiterOptions);
 };
 
+// Payment rate limiter (stricter for fraud prevention)
+const paymentRateLimiterOptions = {
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: (req, res) => {
+    // Allow higher rate for localhost in non-production
+    const isLocal = req.ip === '::1' || req.ip === '127.0.0.1' || req.ip === '::ffff:127.0.0.1';
+    if (process.env.NODE_ENV === 'development' && isLocal) {
+      return 10000;
+    }
+    return 20; // Stricter limit for payment endpoints
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipFailedRequests: false, // Fail closed for payment endpoints
+  keyGenerator: (req) => {
+    // User-based if authenticated, otherwise IP-based
+    if (req.user?.id) return String(req.user.id);
+    return ipKeyGenerator(req);
+  },
+  handler: (req, res) => {
+    logger.security('Payment rate limit exceeded', {
+      route: req.originalUrl,
+      ip: req.ip,
+      userId: req.user?.id || null,
+    });
+
+    res.status(429).json({
+      success: false,
+      message: 'Too many payment requests, please try again later.'
+    });
+  },
+};
+
+if (redisClient) {
+  paymentRateLimiterOptions.store = new RedisStore({
+    sendCommand: (...args) => redisClient.call(...args),
+    prefix: 'rl:payment:',
+  });
+}
+
+const paymentRateLimiter = rateLimit(paymentRateLimiterOptions);
+
+// Analytics rate limiter (allow high volume for event tracking)
+const analyticsRateLimiterOptions = {
+  windowMs: 60 * 1000, // 1 minute
+  max: (req, res) => {
+    // Allow very high rate for analytics (it's async processing)
+    const isLocal = req.ip === '::1' || req.ip === '127.0.0.1' || req.ip === '::ffff:127.0.0.1';
+    if (process.env.NODE_ENV === 'development' && isLocal) {
+      return 10000;
+    }
+    // Allow 500 events per minute per user/IP
+    return 500;
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipFailedRequests: true, // Analytics failures shouldn't block users
+  keyGenerator: (req) => {
+    // User-based if authenticated, otherwise IP-based
+    if (req.user?.id) return `analytics:${req.user.id}`;
+    return `analytics:${ipKeyGenerator(req)}`;
+  },
+  handler: (req, res) => {
+    logger.warn('Analytics rate limit exceeded', {
+      route: req.originalUrl,
+      ip: req.ip,
+      userId: req.user?.id || null,
+    });
+
+    res.status(429).json({
+      success: false,
+      message: 'Too many analytics events, please slow down.'
+    });
+  },
+};
+
+if (redisClient) {
+  analyticsRateLimiterOptions.store = new RedisStore({
+    sendCommand: (...args) => redisClient.call(...args),
+    prefix: 'rl:analytics:',
+  });
+}
+
+const analyticsLimiter = rateLimit(analyticsRateLimiterOptions);
+
 module.exports = {
+  redisClient,
   globalLimiter,
   loginLimiter,
   refreshLimiter,
   userLimiter,
-  redisClient,
+  paymentRateLimiter,
+  analyticsLimiter,
 };
