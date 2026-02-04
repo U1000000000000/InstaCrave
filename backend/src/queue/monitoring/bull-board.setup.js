@@ -25,6 +25,12 @@ const {
  * Create Bull Board instance
  */
 const setupBullBoard = (app) => {
+  // Skip queue monitoring in test environment (queues are undefined in tests)
+  if (process.env.NODE_ENV === 'test') {
+    logger.info('Skipping Bull Board setup in test environment');
+    return;
+  }
+
   const serverAdapter = new ExpressAdapter();
   serverAdapter.setBasePath('/admin/queues');
 
