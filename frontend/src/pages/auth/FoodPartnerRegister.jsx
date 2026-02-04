@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import '../../styles/auth-shared.css';
 import { authApi } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 import { ROUTES } from '../../constants';
 import LoadingSpinner from '../../components/LoadingSpinner';
 
@@ -12,6 +13,7 @@ const FoodPartnerRegister = () => {
   const [profilePreview, setProfilePreview] = useState("https://ik.imagekit.io/u1000/Food%20Vector%20Icon.svg?updatedAt=1759741838210");
   const navigate = useNavigate();
   const fileInputRef = React.useRef();
+  const { login } = useAuth();
   
   const handleSubmit = async (e) => { 
     e.preventDefault();
@@ -23,11 +25,11 @@ const FoodPartnerRegister = () => {
     const password = e.target.password.value.trim();
     const address = e.target.address.value.trim();
 
-        if (!businessName || !contactName || !phone || !email || !password || !address) {
+    if (!businessName || !contactName || !phone || !email || !password || !address) {
       setError("Please fill in all fields.");
       return;
     }
-        const phoneDigits = phone.replace(/[^0-9]/g, "");
+    const phoneDigits = phone.replace(/[^0-9]/g, "");
     if (!/^[0-9+\s-]+$/.test(phone) || phoneDigits.length < 10 || phoneDigits.length > 15) {
       setError("Please add a valid phone number.");
       return;
@@ -37,13 +39,13 @@ const FoodPartnerRegister = () => {
       setError("Please add a valid phone number.");
       return;
     }
-        const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailPattern.test(email)) {
       setError("Please add a valid email address.");
       return;
     }
 
-        const formData = new FormData();
+    const formData = new FormData();
     formData.append('name', businessName);
     formData.append('contactName', contactName);
     formData.append('phone', phone);
@@ -56,14 +58,11 @@ const FoodPartnerRegister = () => {
 
     setIsLoading(true);
     try {
-      const response = await authApi.registerFoodPartner(formData);
-      
-            if (response.data.user?._id) {
-        localStorage.setItem('userId', response.data.user._id);
-      }
-      
+      await authApi.registerFoodPartner(formData);
+      // After registration, log in the food partner
+      await login({ email, password }, 'FOOD_PARTNER');
+      navigate(ROUTES.FOOD_PARTNER.CREATE_FOOD, { replace: true });
       setError("");
-            window.location.href = ROUTES.FOOD_PARTNER.CREATE_FOOD;
     } catch (error) {
       setError(error.response?.data?.message || "There was an error registering!");
     } finally {

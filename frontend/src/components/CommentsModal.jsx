@@ -1,8 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { API_BASE_URL } from '../config';
+import { API_ENDPOINTS } from '../constants';
+import { useProtectedRequest } from '../hooks/useProtectedRequest';
+import api from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 const CommentsModal = ({ open, onClose, foodId, comments, loading, onFetch, onDelete }) => {
-    const currentUserId = window?.user?._id || localStorage.getItem('userId');
+  const { user, status } = useAuth();
+  const currentUserId = status === 'authenticated' && user?._id ? user._id : null;
+
   const [deleting, setDeleting] = useState(null);
   const [localComments, setLocalComments] = useState(comments);
 
@@ -13,16 +18,12 @@ const CommentsModal = ({ open, onClose, foodId, comments, loading, onFetch, onDe
     if (!commentId) return;
     setDeleting(commentId);
     try {
-      await fetch(`${API_BASE_URL}/api/food/delete-comment`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ commentId })
-      });
-            setLocalComments(prev => prev.filter(c => c._id !== commentId));
+      await api.post(API_ENDPOINTS.FOOD.DELETE_COMMENT, { commentId });
+      setLocalComments(prev => prev.filter(c => c._id !== commentId));
       if (onDelete) onDelete(foodId);
     } catch (err) {
-          }
+      // Optionally handle error
+    }
     setDeleting(null);
   };
   useEffect(() => {
@@ -40,19 +41,12 @@ const CommentsModal = ({ open, onClose, foodId, comments, loading, onFetch, onDe
     if (!commentText.trim() || !foodId) return;
     setPosting(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/food/comment`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ comment: commentText.trim(), foodId })
-      });
-      if (res.ok) {
-        setCommentText("");
-        if (onFetch) onFetch(foodId);
-      } else {
-              }
+      await api.post(API_ENDPOINTS.FOOD.COMMENT, { comment: commentText.trim(), foodId });
+      setCommentText("");
+      if (onFetch) onFetch(foodId);
     } catch (err) {
-          }
+      // Optionally handle error
+    }
     setPosting(false);
   };
   if (!open) return null;
@@ -143,7 +137,7 @@ const CommentsModal = ({ open, onClose, foodId, comments, loading, onFetch, onDe
                       <div style={{ fontWeight: 600, fontSize: '.98rem', color: 'var(--color-text)' }}>{c.user?.fullName || c.user || 'Unknown User'}</div>
                       <div style={{ fontSize: '.97rem', color: 'var(--color-text-secondary)', marginTop: 2 }}>{c.comment}</div>
                     </div>
-                    {c.user && c.user._id === currentUserId && (
+                    {status === 'authenticated' && currentUserId && c.user && c.user._id === currentUserId && (
                       <button
                         onClick={() => handleDelete(c._id)}
                         disabled={deleting === c._id}

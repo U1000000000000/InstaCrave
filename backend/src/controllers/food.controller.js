@@ -4,30 +4,52 @@ const likeModel = require("../models/likes.model");
 const saveModel = require("../models/save.model");
 const commentModel = require("../models/comment.model");
 const followModel = require("../models/follow.model");
-const { v4: uuid } = require("uuid");
+const analyticsService = require("../services/analytics.service");
+const logger = require("../services/logger.service");
+const { uuidv4: uuid } = require("../utils/uuid");
+const catchAsync = require("../utils/catchAsync");
+const AppError = require("../utils/AppError");
+const responseUtil = require("../utils/response");
 
-async function createFood(req, res) {
+const sanitizeHtml = require('sanitize-html');
+
+// TODO: Add pagination to getAllFood - currently returns everything which will be slow at scale
+const createFood = catchAsync(async (req, res) => {
   const fileUploadResult = await storageService.uploadFile(
     req.file.buffer,
     uuid()
   );
-
+  const cleanDescription = sanitizeHtml(req.body.description, { allowedTags: [], allowedAttributes: {} });
   const foodItem = await foodModel.create({
-    name: req.body.name,
-    description: req.body.description,
+    name: sanitizeHtml(req.body.name, { allowedTags: [], allowedAttributes: {} }),
+    description: cleanDescription,
     video: fileUploadResult.url,
     foodPartner: req.foodPartner._id,
     isOrderable: req.body.isOrderable === 'true',
     price: req.body.isOrderable === 'true' ? parseFloat(req.body.price) : undefined,
   });
 
-  res.status(201).json({
-    message: "food created successfully",
-    food: foodItem,
-  });
-}
+  // Track analytics
+  await analyticsService.trackEvent({
+    eventType: 'food:item_created',
+    userId: req.foodPartner._id.toString(),
+    userType: 'FoodPartner',
+    data: {
+      foodId: foodItem._id.toString(),
+      foodName: foodItem.name,
+      isOrderable: foodItem.isOrderable,
+      price: foodItem.price,
+    },
+    request: req,
+  }).catch(err => logger.error('Failed to track food creation', { error: err.message }));
 
-async function getFoodItems(req, res) {
+  responseUtil.sendItemResponse(res, {
+    data: foodItem,
+    message: "Food created successfully",
+  });
+});
+
+const getFoodItems = catchAsync(async (req, res) => {
   const user = req.user;
   const foodItems = await foodModel.find({}).populate({
     path: "foodPartner",
@@ -64,13 +86,25 @@ async function getFoodItems(req, res) {
     isFollowing: followingPartnerIds.includes(food.foodPartner._id.toString()),
   }));
 
-  res.status(200).json({
-    message: "Food items fetched successfully",
-    foodItems: responseFoodItems,
-  });
-}
+  // Track analytics
+  await analyticsService.trackEvent({
+    eventType: 'food:list_viewed',
+    userId: user?._id?.toString(),
+    userType: user ? 'User' : null,
+    data: {
+      totalItems: responseFoodItems.length,
+      isAuthenticated: !!user,
+    },
+    request: req,
+  }).catch(err => logger.error('Failed to track food list view', { error: err.message }));
 
-async function getFollowedFoodItems(req, res) {
+  responseUtil.sendListResponse(res, {
+    data: responseFoodItems,
+    message: "Food items fetched successfully",
+  });
+});
+
+const getFollowedFoodItems = catchAsync(async (req, res) => {
   const user = req.user;
 
   let followingPartnerIds = [];
@@ -115,13 +149,25 @@ async function getFollowedFoodItems(req, res) {
     isFollowing: followingPartnerIds.includes(food.foodPartner._id.toString()),
   }));
 
-  res.status(200).json({
-    message: "Followed food items fetched successfully",
-    foodItems: responseFoodItems,
-  });
-}
+  // Track analytics
+  await analyticsService.trackEvent({
+    eventType: 'food:followed_list_viewed',
+    userId: user._id.toString(),
+    userType: 'User',
+    data: {
+      totalItems: responseFoodItems.length,
+      followingCount: followingPartnerIds.length,
+    },
+    request: req,
+  }).catch(err => logger.error('Failed to track followed food view', { error: err.message }));
 
-async function likeFood(req, res) {
+  responseUtil.sendListResponse(res, {
+    data: responseFoodItems,
+    message: "Followed food items fetched successfully",
+  });
+});
+
+const likeFood = catchAsync(async (req, res) => {
   const { foodId } = req.body;
   const user = req.user;
 
@@ -131,36 +177,42 @@ async function likeFood(req, res) {
   });
 
   if (isAlreadyLiked) {
-    await likeModel.deleteOne({
-      user: user._id,
-      food: foodId,
-    });
+    await likeModel.deleteOne({ user: user._id, food: foodId });
+    await foodModel.findByIdAndUpdate(foodId, { $inc: { likeCount: -1 } });
 
-    await foodModel.findByIdAndUpdate(foodId, {
-      $inc: { likeCount: -1 },
-    });
+    // Track unlike
+    await analyticsService.trackEvent({
+      eventType: 'food:item_unliked',
+      userId: user._id.toString(),
+      userType: 'User',
+      data: { foodId: foodId.toString() },
+      request: req,
+    }).catch(err => logger.error('Failed to track unlike', { error: err.message }));
 
-    return res.status(200).json({
+    return responseUtil.sendItemResponse(res, {
+      data: null,
       message: "Food unliked successfully",
     });
   }
+  const like = await likeModel.create({ user: user._id, food: foodId });
+  await foodModel.findByIdAndUpdate(foodId, { $inc: { likeCount: 1 } });
 
-  const like = await likeModel.create({
-    user: user._id,
-    food: foodId,
-  });
+  // Track like
+  await analyticsService.trackEvent({
+    eventType: 'food:item_liked',
+    userId: user._id.toString(),
+    userType: 'User',
+    data: { foodId: foodId.toString() },
+    request: req,
+  }).catch(err => logger.error('Failed to track like', { error: err.message }));
 
-  await foodModel.findByIdAndUpdate(foodId, {
-    $inc: { likeCount: 1 },
-  });
-
-  res.status(201).json({
+  responseUtil.sendItemResponse(res, {
+    data: like,
     message: "Food liked successfully",
-    like,
   });
-}
+});
 
-async function saveFood(req, res) {
+const saveFood = catchAsync(async (req, res) => {
   const { foodId } = req.body;
   const user = req.user;
 
@@ -170,36 +222,42 @@ async function saveFood(req, res) {
   });
 
   if (isAlreadySaved) {
-    await saveModel.deleteOne({
-      user: user._id,
-      food: foodId,
-    });
+    await saveModel.deleteOne({ user: user._id, food: foodId });
+    await foodModel.findByIdAndUpdate(foodId, { $inc: { savesCount: -1 } });
 
-    await foodModel.findByIdAndUpdate(foodId, {
-      $inc: { savesCount: -1 },
-    });
+    // Track unsave
+    await analyticsService.trackEvent({
+      eventType: 'food:item_unsaved',
+      userId: user._id.toString(),
+      userType: 'User',
+      data: { foodId: foodId.toString() },
+      request: req,
+    }).catch(err => logger.error('Failed to track unsave', { error: err.message }));
 
-    return res.status(200).json({
+    return responseUtil.sendItemResponse(res, {
+      data: null,
       message: "Food unsaved successfully",
     });
   }
+  const save = await saveModel.create({ user: user._id, food: foodId });
+  await foodModel.findByIdAndUpdate(foodId, { $inc: { savesCount: 1 } });
 
-  const save = await saveModel.create({
-    user: user._id,
-    food: foodId,
-  });
+  // Track save
+  await analyticsService.trackEvent({
+    eventType: 'food:item_saved',
+    userId: user._id.toString(),
+    userType: 'User',
+    data: { foodId: foodId.toString() },
+    request: req,
+  }).catch(err => logger.error('Failed to track save', { error: err.message }));
 
-  await foodModel.findByIdAndUpdate(foodId, {
-    $inc: { savesCount: 1 },
-  });
-
-  res.status(201).json({
+  responseUtil.sendItemResponse(res, {
+    data: save,
     message: "Food saved successfully",
-    save,
   });
-}
+});
 
-async function getSaveFood(req, res) {
+const getSaveFood = catchAsync(async (req, res) => {
   const user = req.user;
 
   const savedFoods = await saveModel.find({ user: user._id }).populate({
@@ -210,9 +268,7 @@ async function getSaveFood(req, res) {
     },
   });
 
-  if (!savedFoods || savedFoods.length === 0) {
-    return res.status(404).json({ message: "No saved foods found" });
-  }
+  if (!savedFoods || savedFoods.length === 0) throw new AppError("No saved foods found", 404);
 
   let likedFoodIds = [];
   let savedFoodIds = [];
@@ -249,64 +305,89 @@ async function getSaveFood(req, res) {
     };
   });
 
-  res.status(200).json({
-    message: "Saved foods retrieved successfully",
-    responseSavedFoods,
-  });
-}
+  // Track analytics
+  await analyticsService.trackEvent({
+    eventType: 'food:saved_list_viewed',
+    userId: user._id.toString(),
+    userType: 'User',
+    data: {
+      savedCount: responseSavedFoods.length,
+    },
+    request: req,
+  }).catch(err => logger.error('Failed to track saved list view', { error: err.message }));
 
-async function commentOnFood(req, res) {
+  responseUtil.sendListResponse(res, {
+    data: responseSavedFoods,
+    message: "Saved foods retrieved successfully",
+  });
+});
+
+const commentOnFood = catchAsync(async (req, res) => {
   const { foodId, comment } = req.body;
   const user = req.user;
 
-  const commented = await commentModel.create({
-    user: user._id,
-    food: foodId,
-    comment: comment,
-  });
+    const cleanComment = sanitizeHtml(comment, { allowedTags: [], allowedAttributes: {} });
+    const commented = await commentModel.create({
+      user: user._id,
+      food: foodId,
+      comment: cleanComment,
+    });
+  await foodModel.findByIdAndUpdate(foodId, { $inc: { commentCount: 1 } });
 
-  await foodModel.findByIdAndUpdate(foodId, {
-    $inc: { commentCount: 1 },
-  });
+  // Track analytics
+  await analyticsService.trackEvent({
+    eventType: 'food:comment_created',
+    userId: user._id.toString(),
+    userType: 'User',
+    data: {
+      foodId: foodId.toString(),
+      commentId: commented._id.toString(),
+      commentLength: cleanComment.length,
+    },
+    request: req,
+  }).catch(err => logger.error('Failed to track comment', { error: err.message }));
 
-  res.status(201).json({
+  responseUtil.sendItemResponse(res, {
+    data: commented,
     message: "Commented on food successfully",
-    commented,
   });
-}
+});
 
-async function getCommentOnFood(req, res) {
+const getCommentOnFood = catchAsync(async (req, res) => {
   const { foodId } = req.query;
 
   const comments = await commentModel
     .find({ food: foodId })
     .populate({ path: "user", select: "fullName" });
 
-  if (!comments || comments.length === 0) {
-    return res.status(404).json({ message: "No comments yet!" });
-  }
+  if (!comments || comments.length === 0) throw new AppError("No comments yet!", 404);
 
-  res.status(200).json({
+  // Track analytics
+  await analyticsService.trackEvent({
+    eventType: 'food:comments_viewed',
+    userId: req.user?._id?.toString(),
+    userType: req.user ? 'User' : null,
+    data: {
+      foodId: foodId.toString(),
+      commentsCount: comments.length,
+    },
+    request: req,
+  }).catch(err => logger.error('Failed to track comments view', { error: err.message }));
+
+  responseUtil.sendListResponse(res, {
+    data: comments,
     message: "Comments on food retrieved successfully",
-    comments,
   });
-}
+});
 
-async function deleteCommentOnFood(req, res) {
+const deleteCommentOnFood = catchAsync(async (req, res) => {
   const { commentId } = req.body;
   const user = req.user;
 
   const comment = await commentModel.findById(commentId);
 
-  if (!comment) {
-    return res.status(404).json({ message: "Comment not found" });
-  }
-
-  if (comment.user.toString() !== user._id.toString()) {
-    return res
-      .status(403)
-      .json({ message: "You are not authorized to delete this comment" });
-  }
+  if (!comment) throw new AppError("Comment not found", 404);
+  if (comment.user.toString() !== user._id.toString()) throw new AppError("You are not authorized to delete this comment", 403);
 
   await commentModel.findByIdAndDelete(commentId);
 
@@ -314,128 +395,130 @@ async function deleteCommentOnFood(req, res) {
     $inc: { commentCount: -1 },
   });
 
-  res.status(200).json({
+  // Track analytics
+  await analyticsService.trackEvent({
+    eventType: 'food:comment_deleted',
+    userId: user._id.toString(),
+    userType: 'User',
+    data: {
+      foodId: comment.food.toString(),
+      commentId: commentId.toString(),
+    },
+    request: req,
+  }).catch(err => logger.error('Failed to track comment deletion', { error: err.message }));
+
+  responseUtil.sendItemResponse(res, {
+    data: null,
     message: "Comment on food deleted successfully",
   });
-}
+});
 
-async function editFood(req, res) {
-  try {
-    const { foodId } = req.params;
-    const foodPartnerId = req.foodPartner._id;
-    let updateFields = req.body;
-
-    const food = await foodModel.findById(foodId);
-
-    if (!food) {
-      return res.status(404).json({ message: "Food not found" });
-    }
-
-    if (food.foodPartner.toString() !== foodPartnerId.toString()) {
-      return res
-        .status(403)
-        .json({ message: "You are not authorized to edit this food" });
-    }
-
-    if (req.file) {
-      const fileUploadResult = await storageService.uploadFile(
-        req.file.buffer,
-        uuid()
-      );
-      updateFields.video = fileUploadResult.url;
-    }
-
-    const allowedFields = ["name", "description", "video", "price", "isOrderable"];
-    const updateKeys = Object.keys(updateFields);
-
-    if (updateKeys.length !== 1) {
-      return res
-        .status(400)
-        .json({ message: "Please send exactly one field to update." });
-    }
-
-    if (!allowedFields.includes(updateKeys[0])) {
-      return res
-        .status(400)
-        .json({ message: `Cannot update field: ${updateKeys[0]}` });
-    }
-
-    const updatedFood = await foodModel.findByIdAndUpdate(
-      foodId,
-      { $set: updateFields },
-      { new: true }
+const editFood = catchAsync(async (req, res) => {
+  // Support both :id and :foodId as route params for compatibility
+  const foodId = req.params.id || req.params.foodId;
+  const foodPartnerId = req.foodPartner._id;
+  let updateFields = req.body;
+  const food = await foodModel.findById(foodId);
+  if (!food) throw new AppError("Food not found", 404);
+  if (food.foodPartner.toString() !== foodPartnerId.toString()) throw new AppError("You are not authorized to edit this food", 403);
+  if (req.file) {
+    const fileUploadResult = await storageService.uploadFile(
+      req.file.buffer,
+      uuid()
     );
-
-    res.status(200).json({
-      message: "Food updated successfully",
-      food: updatedFood,
-    });
-  } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
+    updateFields.video = fileUploadResult.url;
   }
-}
+  // Sanitize fields if present
+  if (updateFields.name) {
+    updateFields.name = sanitizeHtml(updateFields.name, { allowedTags: [], allowedAttributes: {} });
+  }
+  if (updateFields.description) {
+    updateFields.description = sanitizeHtml(updateFields.description, { allowedTags: [], allowedAttributes: {} });
+  }
+  const allowedFields = ["name", "description", "video", "price", "isOrderable"];
+  const updateKeys = Object.keys(updateFields);
+  if (updateKeys.length !== 1) throw new AppError("Please send exactly one field to update.", 400);
+  if (!allowedFields.includes(updateKeys[0])) throw new AppError(`Cannot update field: ${updateKeys[0]}`, 400);
+  const updatedFood = await foodModel.findByIdAndUpdate(
+    foodId,
+    { $set: updateFields },
+    { new: true }
+  );
 
-async function deleteFood(req, res) {
+  // Track analytics
+  await analyticsService.trackEvent({
+    eventType: 'food:item_updated',
+    userId: req.foodPartner._id.toString(),
+    userType: 'FoodPartner',
+    data: {
+      foodId: foodId.toString(),
+      fieldUpdated: updateKeys[0],
+    },
+    request: req,
+  }).catch(err => logger.error('Failed to track food update', { error: err.message }));
+
+  responseUtil.sendItemResponse(res, {
+    data: updatedFood,
+    message: "Food updated successfully",
+  });
+});
+
+const deleteFood = catchAsync(async (req, res) => {
   const foodId = req.params.foodId;
   const foodPartnerId = req.foodPartner._id;
-
   const food = await foodModel.findById(foodId);
-
-  if (!food) {
-    return res.status(404).json({ message: "Food not found" });
-  }
-
-  if (food.foodPartner.toString() !== foodPartnerId.toString()) {
-    return res
-      .status(403)
-      .json({ message: "You are not authorized to delete this food" });
-  }
-
+  if (!food) throw new AppError("Food not found", 404);
+  if (food.foodPartner.toString() !== foodPartnerId.toString()) throw new AppError("You are not authorized to delete this food", 403);
   await foodModel.findByIdAndDelete(foodId);
   await commentModel.deleteMany({ food: foodId });
   await likeModel.deleteMany({ food: foodId });
-  await saveModel.deleteMany({ food: foodId });  
+  await saveModel.deleteMany({ food: foodId });
 
-  res.status(200).json({
+  // Track analytics
+  await analyticsService.trackEvent({
+    eventType: 'food:item_deleted',
+    userId: req.foodPartner._id.toString(),
+    userType: 'FoodPartner',
+    data: {
+      foodId: foodId.toString(),
+      foodName: food.name,
+    },
+    request: req,
+  }).catch(err => logger.error('Failed to track food deletion', { error: err.message }));
+
+  responseUtil.sendItemResponse(res, {
+    data: null,
     message: "Food deleted successfully",
   });
-}
+});
 
-async function updateShareCount(req, res) {
-  if (!req.user) {
-    return res.status(403).json({
-      message: "User not authenticated",
-    });
-  }
-
+const updateShareCount = catchAsync(async (req, res) => {
+  if (!req.user) throw new AppError("User not authenticated", 403);
   const { foodId } = req.body;
+  const updatedFood = await foodModel.findByIdAndUpdate(
+    foodId,
+    { $inc: { shareCount: 1 } },
+    { new: true }
+  );
+  if (!updatedFood) throw new AppError("Food not found", 404);
 
-  try {
-    const updatedFood = await foodModel.findByIdAndUpdate(
-      foodId,
-      {
-        $inc: { shareCount: 1 },
-      },
-      { new: true }
-    );
+  // Track analytics
+  await analyticsService.trackEvent({
+    eventType: 'food:item_shared',
+    userId: req.user._id.toString(),
+    userType: 'User',
+    data: {
+      foodId: foodId.toString(),
+      newShareCount: updatedFood.shareCount,
+    },
+    request: req,
+  }).catch(err => logger.error('Failed to track share', { error: err.message }));
 
-    if (!updatedFood) {
-      return res.status(404).json({
-        message: "Food not found",
-      });
-    }
-
-    res.status(200).json({
-      message: "Share count updated successfully",
-      currentShareCount: updatedFood.shareCount,
-    });
-  } catch (error) {
-    res.status(500).json({
-      message: "Error updating share count",
-      error: error.message,
-    });
-  }
-}
+  responseUtil.sendItemResponse(res, {
+    data: { currentShareCount: updatedFood.shareCount },
+    message: "Share count updated successfully",
+  });
+});
 
 module.exports = {
   createFood,

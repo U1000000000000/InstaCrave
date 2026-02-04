@@ -69,22 +69,15 @@ const UserLogin = () => {
    */
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-        if (!validateForm()) {
+    if (!validateForm()) {
       return;
     }
-
     setLoading(true);
     setApiError('');
-
     try {
-      const response = await login(formData, USER_TYPES.USER);
-      
-            if (response.user?._id) {
-        localStorage.setItem(STORAGE_KEYS.USER_ID, response.user._id);
-      }
-
-            window.location.href = ROUTES.HOME;
+      await login(formData, USER_TYPES.USER);
+      // After login, user context will update. Navigate to home.
+      navigate(ROUTES.HOME, { replace: true });
     } catch (error) {
       setApiError(error.message || 'Login failed. Please try again.');
     } finally {
