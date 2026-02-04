@@ -12,6 +12,12 @@ const allowedOrigins = [
 ].filter(Boolean).map(origin => origin.trim()); // Remove undefined/null and trim whitespace
 
 // Log allowed origins on startup
+console.log('🔒 CORS Configuration:', {
+    allowedOrigins,
+    FRONTEND_URL: process.env.FRONTEND_URL,
+    FRONTEND_URL_LOCAL: process.env.FRONTEND_URL_LOCAL,
+    NODE_ENV: process.env.NODE_ENV
+});
 logger.info('CORS allowed origins:', { allowedOrigins });
 
 function isOriginAllowed(origin) {
@@ -43,10 +49,22 @@ function corsLogger(req, origin, result) {
 const advancedCors = (req, res, next) => {
     const origin = req.headers.origin;
     const isAllowed = isOriginAllowed(origin);
+    
+    // Log every CORS check in production
+    if (process.env.NODE_ENV === 'production') {
+        console.log('🌐 CORS Check:', {
+            method: req.method,
+            url: req.url,
+            origin,
+            isAllowed,
+            allowedOrigins
+        });
+    }
+    
     corsLogger(req, origin, isAllowed);
 
     if (isAllowed) {
-        res.header('Access-Control-Allow-Origin', origin);
+        res.header('Access-Control-Allow-Origin', origin || '*');
         res.header('Vary', 'Origin');
         res.header('Access-Control-Allow-Credentials', 'true');
         res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
