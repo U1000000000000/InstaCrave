@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
-import axios from 'axios';
+import { useProtectedRequest } from '../../hooks/useProtectedRequest';
+import api from '../../services/api';
 import { useNavigate } from 'react-router-dom';
 import { API_BASE_URL } from '../../config';
+import { API_ENDPOINTS } from '../../constants';
 
 const UserChangePassword = () => {
   const [password, setPassword] = useState('');
@@ -25,7 +27,7 @@ const UserChangePassword = () => {
     }
     setLoading(true);
     try {
-      await axios.patch(`${API_BASE_URL}/api/user/`, { password }, { withCredentials: true });
+      await api.patch(API_ENDPOINTS.USER.BASE, { password });
       setSuccess('Password changed successfully!');
       setTimeout(() => navigate(-1), 1200);
     } catch (err) {

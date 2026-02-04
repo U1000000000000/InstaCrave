@@ -1,0 +1,182 @@
+version: '3.8'
+
+# ============================================
+# InstaCrave - Development Environment
+# ============================================
+# Services: Backend, Frontend, MongoDB, Redis
+# Features: Hot reload, volume mounts, dev tools
+# ============================================
+
+services:
+  # ==========================================
+  # MongoDB Database
+  # ==========================================
+  mongodb:
+    image: mongo:7.0
+    container_name: instacrave-mongodb-dev
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: admin123
+      MONGO_INITDB_DATABASE: instacrave
+    volumes:
+      - mongodb_data:/data/db
+      - mongodb_config:/data/configdb
+    networks:
+      - instacrave-network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/instacrave --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # ==========================================
+  # Redis Cache & Queue
+  # ==========================================
+  redis:
+    image: redis:7-alpine
+    container_name: instacrave-redis-dev
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --requirepass redis123
+    volumes:
+      - redis_data:/data
+    networks:
+      - instacrave-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  # ==========================================
+  # Backend API
+  # ==========================================
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: development
+    container_name: instacrave-backend-dev
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      
+      # MongoDB
+      MONGODB_URI: mongodb://admin:admin123@mongodb:27017/instacrave?authSource=admin
+      
+      # Redis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: redis123
+      REDIS_TLS: "false"
+      
+      # Cache
+      APP_CACHE_VERSION: v1
+      
+      # JWT
+      JWT_SECRET: dev-jwt-secret-min-32-characters-long
+      JWT_EXPIRES_IN: 15m
+      JWT_REFRESH_SECRET: dev-refresh-secret-min-32-characters-long
+      JWT_REFRESH_EXPIRES_IN: 7d
+      
+      # Argon2
+      ARGON2_MEMORY_COST: 65536
+      ARGON2_TIME_COST: 3
+      ARGON2_PARALLELISM: 4
+      
+      # ImageKit (use your real keys or leave empty for dev)
+      IMAGEKIT_PUBLIC_KEY: ${IMAGEKIT_PUBLIC_KEY:-}
+      IMAGEKIT_PRIVATE_KEY: ${IMAGEKIT_PRIVATE_KEY:-}
+      IMAGEKIT_URL_ENDPOINT: ${IMAGEKIT_URL_ENDPOINT:-}
+      
+      # Email (use your real keys or leave empty for dev)
+      EMAIL_HOST: ${EMAIL_HOST:-smtp.gmail.com}
+      EMAIL_PORT: ${EMAIL_PORT:-587}
+      EMAIL_USER: ${EMAIL_USER:-}
+      EMAIL_PASSWORD: ${EMAIL_PASSWORD:-}
+      EMAIL_FROM: ${EMAIL_FROM:-noreply@instacrave.com}
+      
+      # CORS
+      FRONTEND_URL: http://localhost:5173
+      
+    volumes:
+      # Mount source code for hot reload
+      - ./backend/src:/app/src:delegated
+      - ./backend/server.js:/app/server.js:delegated
+      # Logs volume
+      - backend_logs:/app/logs
+      # Node modules (don't overwrite)
+      - /app/node_modules
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - instacrave-network
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (r) => r.statusCode === 200 ? process.exit(0) : process.exit(1))"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 40s
+
+  # ==========================================
+  # Frontend (Vite Dev Server)
+  # ==========================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: development
+    container_name: instacrave-frontend-dev
+    restart: unless-stopped
+    ports:
+      - "5173:5173"
+    environment:
+      NODE_ENV: development
+      VITE_API_URL: http://localhost:3000/api/v1
+    volumes:
+      # Mount source code for hot reload
+      - ./frontend/src:/app/src:delegated
+      - ./frontend/public:/app/public:delegated
+      - ./frontend/index.html:/app/index.html:delegated
+      - ./frontend/vite.config.js:/app/vite.config.js:delegated
+      # Node modules (don't overwrite)
+      - /app/node_modules
+    depends_on:
+      - backend
+    networks:
+      - instacrave-network
+    stdin_open: true
+    tty: true
+
+# ============================================
+# Networks
+# ============================================
+networks:
+  instacrave-network:
+    driver: bridge
+    name: instacrave-dev-network
+
+# ============================================
+# Volumes (Persistent Data)
+# ============================================
+volumes:
+  mongodb_data:
+    name: instacrave-mongodb-data-dev
+  mongodb_config:
+    name: instacrave-mongodb-config-dev
+  redis_data:
+    name: instacrave-redis-data-dev
+  backend_logs:
+    name: instacrave-backend-logs-dev

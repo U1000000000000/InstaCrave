@@ -25,10 +25,18 @@ import UserReels from '../pages/user/Reels';
 import UserProfile from '../pages/user/Profile';
 import UserChangePassword from '../pages/user/ChangePassword';
 import Orders from '../pages/user/Orders';
+import Cart from '../pages/user/Cart';
+import Checkout from '../pages/user/Checkout';
+import Payment from '../pages/user/Payment';
+import OrderSuccess from '../pages/user/OrderSuccess';
+import OrderFailure from '../pages/user/OrderFailure';
 import PublicFoodPartnerProfile from '../pages/food-partner/PublicProfile';
 import ReelPage from '../pages/user/ReelPage';
 import ProtectedRoute from '../components/ProtectedRoute';
 import PartnerOrders from '../pages/food-partner/PartnerOrders';
+
+import UserSessions from '../pages/user/Sessions';
+import FoodPartnerSessions from '../pages/food-partner/Sessions';
 
 const AnimatedRoutes = () => {
     const location = useLocation();
@@ -105,6 +113,48 @@ const AnimatedRoutes = () => {
                         </ProtectedRoute>
                     </PageTransition>
                 } />
+                <Route path="/user/cart" element={
+                    <PageTransition>
+                        <ProtectedRoute requiredUserType="user">
+                            <Cart /><UserBottomNav />
+                        </ProtectedRoute>
+                    </PageTransition>
+                } />
+                <Route path="/user/checkout" element={
+                    <PageTransition>
+                        <ProtectedRoute requiredUserType="user">
+                            <Checkout /><UserBottomNav />
+                        </ProtectedRoute>
+                    </PageTransition>
+                } />
+                <Route path="/user/payment" element={
+                    <PageTransition>
+                        <ProtectedRoute requiredUserType="user">
+                            <Payment /><UserBottomNav />
+                        </ProtectedRoute>
+                    </PageTransition>
+                } />
+                <Route path="/user/order-success" element={
+                    <PageTransition>
+                        <ProtectedRoute requiredUserType="user">
+                            <OrderSuccess /><UserBottomNav />
+                        </ProtectedRoute>
+                    </PageTransition>
+                } />
+                <Route path="/user/order-failure" element={
+                    <PageTransition>
+                        <ProtectedRoute requiredUserType="user">
+                            <OrderFailure /><UserBottomNav />
+                        </ProtectedRoute>
+                    </PageTransition>
+                } />
+                    <Route path="/user/sessions" element={
+                        <PageTransition>
+                            <ProtectedRoute requiredUserType="user">
+                                <UserSessions /><UserBottomNav />
+                            </ProtectedRoute>
+                        </PageTransition>
+                    } />
                 <Route path="/create-food" element={
                     <PageTransition>
                         <ProtectedRoute requiredUserType="food-partner">
@@ -161,17 +211,20 @@ const AnimatedRoutes = () => {
                         </ProtectedRoute>
                     </PageTransition>
                 } />
+                <Route path="/food-partner/sessions" element={
+                    <PageTransition>
+                        <ProtectedRoute requiredUserType="food-partner">
+                            <FoodPartnerSessions /><BottomNavFoodPartner />
+                        </ProtectedRoute>
+                    </PageTransition>
+                } />
             </Routes>
         </AnimatePresence>
     );
 };
 
 const AppRoutes = () => {
-    return (
-        <Router>
-            <AnimatedRoutes />
-        </Router>
-    )
+    return <AnimatedRoutes />
 }
 
 export default AppRoutes

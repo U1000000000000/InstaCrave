@@ -1,7 +1,9 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { FaBookmark, FaRegBookmark } from 'react-icons/fa';
-import axios from 'axios';
+import { useProtectedRequest } from '../../hooks/useProtectedRequest';
+import api from '../../services/api';
 import { API_BASE_URL } from '../../config';
+import { API_ENDPOINTS } from '../../constants';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../../constants';
 import '../../styles/profile.css';
@@ -115,83 +117,81 @@ const Profile = () => {
     };
   }, [activeTab, user]);
   
+  // useProtectedRequest for all tab data
+  const { data: savedData, loading: savedLoadingApi, refetch: refetchSaved } = useProtectedRequest(
+    () => api.get(API_ENDPOINTS.FOOD.SAVE),
+    [activeTab === 'saved']
+  );
+  const { data: commentsData, loading: commentsLoadingApi, refetch: refetchComments } = useProtectedRequest(
+    () => api.get(API_ENDPOINTS.USER.COMMENTS),
+    [activeTab === 'comments']
+  );
+  const { data: followingData, loading: followingLoadingApi, refetch: refetchFollowing } = useProtectedRequest(
+    () => api.get(API_ENDPOINTS.USER.FOLLOWING),
+    [activeTab === 'following']
+  );
+  const { data: likesData, loading: likesLoadingApi, refetch: refetchLikes } = useProtectedRequest(
+    () => api.get(API_ENDPOINTS.USER.LIKES),
+    [activeTab === 'likes']
+  );
+
   useEffect(() => {
-    if (activeTab === 'saved') {
-      setSavedLoading(true);
-      axios.get(`${API_BASE_URL}/api/food/save`, { withCredentials: true })
-        .then(response => {
-          const foods = response.data.responseSavedFoods || [];
-          const savedFoods = foods.map((item) => ({
-            _id: item._id,
-            name: item.name || '',
-            video: item.video,
-            description: item.description,
-            likeCount: item.likeCount,
-            savesCount: item.savesCount,
-            commentCount: item.commentCount,
-            foodPartner: item.foodPartner,
-            isSaved: true,           }));
-          setSavedVideos(savedFoods);
-          setSavedLoading(false);
-        })
-        .catch(() => setSavedLoading(false));
-    } else if (activeTab === 'comments') {
-      setCommentsLoading(true);
-      axios.get(`${API_BASE_URL}/api/user/comments`, { withCredentials: true })
-        .then(response => {
-          setComments(response.data.comments || []);
-          setCommentsLoading(false);
-        })
-        .catch(() => {
-          setComments([]);
-          setCommentsLoading(false);
-        });
-    } else if (activeTab === 'following') {
-      setFollowingLoading(true);
-      axios.get(`${API_BASE_URL}/api/user/follows`, { withCredentials: true })
-        .then(response => {
-          setFollowing(response.data.following || []);
-          setFollowingLoading(false);
-        })
-        .catch(() => {
-          setFollowing([]);
-          setFollowingLoading(false);
-        });
-    } else if (activeTab === 'likes') {
-      setLikesLoading(true);
-      axios.get(`${API_BASE_URL}/api/user/likes`, { withCredentials: true })
-        .then(response => {
-          const likesData = (response.data.likes || []).map(like => ({ ...like, isLiked: true }));
-          setLikes(likesData);
-          setLikesLoading(false);
-        })
-        .catch(() => {
-          setLikes([]);
-          setLikesLoading(false);
-        });
+    if (activeTab === 'saved' && savedData) {
+      const foods = savedData.data || [];
+      const savedFoods = foods.map((item) => ({
+        _id: item._id,
+        name: item.name || '',
+        video: item.video,
+        description: item.description,
+        likeCount: item.likeCount,
+        savesCount: item.savesCount,
+        commentCount: item.commentCount,
+        foodPartner: item.foodPartner,
+        isSaved: true,
+      }));
+      setSavedVideos(savedFoods);
+    } else if (activeTab === 'comments' && commentsData) {
+      setComments(commentsData.data || []);
+    } else if (activeTab === 'following' && followingData) {
+      setFollowing(followingData.data || []);
+    } else if (activeTab === 'likes' && likesData) {
+      const likesList = (likesData.data || []).map(like => ({ ...like, isLiked: true }));
+      setLikes(likesList);
     }
-  }, [activeTab]);
+  }, [activeTab, savedData, commentsData, followingData, likesData]);
+
+  // Set loading states from useProtectedRequest
+  useEffect(() => {
+    setSavedLoading(savedLoadingApi);
+  }, [savedLoadingApi]);
+  useEffect(() => {
+    setCommentsLoading(commentsLoadingApi);
+  }, [commentsLoadingApi]);
+  useEffect(() => {
+    setFollowingLoading(followingLoadingApi);
+  }, [followingLoadingApi]);
+  useEffect(() => {
+    setLikesLoading(likesLoadingApi);
+  }, [likesLoadingApi]);
   const [editField, setEditField] = useState(null);
   const [editValue, setEditValue] = useState('');
   const [editLoading, setEditLoading] = useState(false);
   const [error, setError] = useState('');
   const [menuOpen, setMenuOpen] = useState('');   const inputRef = useRef();
 
+  // useProtectedRequest for user profile
+  const { data: userData, loading: userLoading, error: userError, refetch: refetchUser } = useProtectedRequest(
+    () => api.get(API_ENDPOINTS.USER.BASE),
+    []
+  );
   useEffect(() => {
-    axios.get(`${API_BASE_URL}/api/user/`, { withCredentials: true })
-      .then(res => {
-        if (res.data && res.data.user) {
-          setUser(res.data.user);
-        } else {
-          setUser(null);
-        }
-        setLoading(false);
-      })
-      .catch(() => {
-        setUser(null);
-        setLoading(false);
-      });
-  }, []);
+    if (userData && userData.data) {
+      setUser(userData.data);
+    } else {
+      setUser(null);
+    }
+    setLoading(userLoading);
+  }, [userData, userLoading]);
 
   const handleEdit = (field, value) => {
     setEditField(field);
@@ -208,10 +208,10 @@ const Profile = () => {
     setError('');
     try {
       if (editField === 'fullName') {
-        await axios.patch(`${API_BASE_URL}/api/user/`, { fullName: editValue }, { withCredentials: true });
+        await api.patch(API_ENDPOINTS.USER.BASE, { fullName: editValue });
         setUser(u => ({ ...u, fullName: editValue }));
       } else if (editField === 'password') {
-        await axios.patch(`${API_BASE_URL}/api/user/`, { password: editValue }, { withCredentials: true });
+        await api.patch(API_ENDPOINTS.USER.BASE, { password: editValue });
       }
       setEditField(null);
       setEditValue('');
@@ -250,7 +250,7 @@ const Profile = () => {
     }
     setPasswordLoading(true);
     try {
-      await axios.patch(`${API_BASE_URL}/api/user/`, { password }, { withCredentials: true });
+      await api.patch(API_ENDPOINTS.USER.BASE, { password });
       setPasswordSuccess('Password changed successfully!');
       setTimeout(() => handlePasswordModalClose(), 1200);
     } catch (err) {
@@ -584,6 +584,27 @@ const Profile = () => {
             <button
               style={{
                 width:'100%',
+                background:'var(--color-surface-dark, #232326)',
+                color:'#fff',
+                border:'1.5px solid var(--color-border)',
+                borderRadius:12,
+                padding:'18px',
+                fontWeight:700,
+                fontSize:'1.13rem',
+                marginBottom:'8px',
+                marginTop:0,
+                boxShadow:'var(--shadow-sm)',
+                cursor:'pointer',
+                textAlign:'left',
+                transition:'background 0.18s,border 0.18s',
+              }}
+              onClick={()=>navigate('/user/sessions')}
+            >
+              Sessions
+            </button>
+            <button
+              style={{
+                width:'100%',
                 background:'var(--color-accent)',
                 color:'#fff',
                 border:'1.5px solid var(--color-accent)',
@@ -661,13 +682,14 @@ const Profile = () => {
                           transition: 'all 0.2s'
                         }}
                         title={meal.isSaved ? 'Unsave' : 'Save'}
-                        onClick={e => {
+                        onClick={async e => {
                           e.stopPropagation();
-                                                    setSavedVideos(prev => prev.map(v => v._id === meal._id ? { ...v, isSaved: !v.isSaved } : v));
-                                                    axios.post(`${API_BASE_URL}/api/food/save`, { foodId: meal._id }, { withCredentials: true })
-                            .catch(() => {
-                                                            setSavedVideos(prev => prev.map(v => v._id === meal._id ? { ...v, isSaved: !v.isSaved } : v));
-                            });
+                          setSavedVideos(prev => prev.map(v => v._id === meal._id ? { ...v, isSaved: !v.isSaved } : v));
+                          try {
+                            await api.post(API_ENDPOINTS.FOOD.SAVE, { foodId: meal._id });
+                          } catch {
+                            setSavedVideos(prev => prev.map(v => v._id === meal._id ? { ...v, isSaved: !v.isSaved } : v));
+                          }
                         }}
                         onMouseEnter={e => {
                           if (!meal.isSaved) {
@@ -770,14 +792,11 @@ const Profile = () => {
                         </div>
                         <button
                           onClick={async (e) => {
-                            e.stopPropagation();
-                            if (window.confirm('Delete this comment?')) {
-                              try {
-                                await axios.delete(`${API_BASE_URL}/api/user/comments/${comment._id}`, { withCredentials: true });
-                                setComments(prev => prev.filter(c => c._id !== comment._id));
-                              } catch (err) {
-                                alert('Failed to delete comment');
-                              }
+                            try {
+                              await api.post(API_ENDPOINTS.FOOD.DELETE_COMMENT, { commentId: comment._id });
+                              setComments(prev => prev.filter(c => c._id !== comment._id));
+                            } catch (err) {
+                              alert('Failed to delete comment');
                             }
                           }}
                           style={{
@@ -1072,13 +1091,14 @@ const Profile = () => {
                         </div>
                         <LikeHeartButton
                           isLiked={like.isLiked}
-                          onClick={e => {
+                          onClick={async e => {
                             e.stopPropagation();
                             setLikes(prev => prev.map(l => l._id === like._id ? { ...l, isLiked: !l.isLiked } : l));
-                            axios.post(`${API_BASE_URL}/api/food/like`, { foodId: like.food._id }, { withCredentials: true })
-                              .catch(() => {
-                                setLikes(prev => prev.map(l => l._id === like._id ? { ...l, isLiked: !l.isLiked } : l));
-                              });
+                            try {
+                              await api.post(API_ENDPOINTS.FOOD.LIKE, { foodId: like.food._id });
+                            } catch {
+                              setLikes(prev => prev.map(l => l._id === like._id ? { ...l, isLiked: !l.isLiked } : l));
+                            }
                           }}
                         />
                       </div>

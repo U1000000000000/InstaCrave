@@ -1,39 +1,53 @@
 import React, { useEffect, useState } from 'react'
-import axios from 'axios';
+import { useProtectedRequest } from '../../hooks/useProtectedRequest';
+import api from '../../services/api';
 import '../../styles/reels.css'
 import ReelFeed from '../../components/ReelFeed'
 import { API_BASE_URL } from '../../config';
+import { API_ENDPOINTS } from '../../constants';
 
 const Home = () => {
     function commentVideo(item) {}
-    const [ videos, setVideos ] = useState([])
-    
-    useEffect(() => {
-        axios.get(`${API_BASE_URL}/api/food/followed`, { withCredentials: true })
-            .then(response => {
-                setVideos(response.data.foodItems)
-            })
-            .catch(() => { })
-    }, [])
+    const [videos, setVideos] = useState([]);
+    const { data, error, loading, refetch } = useProtectedRequest(
+        () => api.get(API_ENDPOINTS.FOOD.FOLLOWED),
+        []
+    );
 
-    
-    async function likeVideo(item) {
-        const response = await axios.post(`${API_BASE_URL}/api/food/like`, { foodId: item._id }, {withCredentials: true})
-        if(response.data.like){
-            setVideos((prev) => prev.map((v) => v._id === item._id ? { ...v, likeCount: v.likeCount + 1, isLiked: true } : v))
-        }else{
-            setVideos((prev) => prev.map((v) => v._id === item._id ? { ...v, likeCount: v.likeCount - 1, isLiked: false } : v))
+    useEffect(() => {
+        if (data && Array.isArray(data.data)) {
+            setVideos(data.data);
+        } else {
+            setVideos([]);
         }
+    }, [data]);
+
+    useEffect(() => {
+        if (error) {
+            alert(error?.response?.data?.message || 'Error loading feed. Please try again.');
+        }
+    }, [error]);
+
+    async function likeVideo(item) {
+        try {
+            const response = await api.post(API_ENDPOINTS.FOOD.LIKE, { foodId: item._id });
+            if (response.data.data) {
+                setVideos((prev) => prev.map((v) => v._id === item._id ? { ...v, likeCount: v.likeCount + 1, isLiked: true } : v));
+            } else {
+                setVideos((prev) => prev.map((v) => v._id === item._id ? { ...v, likeCount: v.likeCount - 1, isLiked: false } : v));
+            }
+        } catch {}
     }
 
     async function saveVideo(item) {
-        const response = await axios.post(`${API_BASE_URL}/api/food/save`, { foodId: item._id }, { withCredentials: true })
-        
-        if(response.data.save){
-            setVideos((prev) => prev.map((v) => v._id === item._id ? { ...v, savesCount: v.savesCount + 1 } : v))
-        }else{
-            setVideos((prev) => prev.map((v) => v._id === item._id ? { ...v, savesCount: v.savesCount - 1 } : v))
-        }
+        try {
+            const response = await api.post(API_ENDPOINTS.FOOD.SAVE, { foodId: item._id });
+            if (response.data.data) {
+                setVideos((prev) => prev.map((v) => v._id === item._id ? { ...v, savesCount: v.savesCount + 1 } : v));
+            } else {
+                setVideos((prev) => prev.map((v) => v._id === item._id ? { ...v, savesCount: v.savesCount - 1 } : v));
+            }
+        } catch {}
     }
 
     return (
@@ -44,7 +58,7 @@ const Home = () => {
             onComment={commentVideo}
             emptyMessage="No videos available."
         />
-    )
+    );
 }
 
 export default Home

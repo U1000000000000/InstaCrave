@@ -426,6 +426,7 @@
 .orders-grid {
   display: grid;
   gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 400px), 1fr));
 }
 
 .order-card {
@@ -438,6 +439,7 @@
   position: relative;
   /* overflow: hidden; */
   overflow: visible;
+  max-width: 100%;
 }
 
 .order-card::before {
@@ -467,12 +469,14 @@
   justify-content: space-between;
   align-items: flex-start;
   margin-bottom: 16px;
-  gap: 16px;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .order-food-info {
   flex: 1;
   min-width: 0;
+  max-width: 100%;
 }
 
 .order-food-name {
@@ -480,15 +484,15 @@
   font-weight: 700;
   color: var(--color-text);
   margin: 0 0 4px 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 .order-quantity {
   font-size: 0.95rem;
   color: var(--color-text-secondary);
   margin: 0;
+  word-wrap: break-word;
 }
 
 .order-total {
@@ -496,6 +500,7 @@
   font-weight: 700;
   color: var(--color-accent);
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .order-details {
@@ -522,9 +527,9 @@
 .detail-text {
   color: var(--color-text-secondary);
   flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  max-width: 100%;
 }
 
 .order-card-footer {
@@ -706,6 +711,38 @@
   .order-card-footer {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .order-card {
+    padding: 16px;
+  }
+
+  .order-card-header {
+    gap: 8px;
+  }
+
+  .order-food-name {
+    font-size: 1.05rem;
+  }
+
+  .order-total {
+    font-size: 1.3rem;
+    width: 100%;
+    text-align: right;
+  }
+
+  .order-details {
+    padding: 10px;
+    gap: 6px;
+  }
+
+  .detail-text {
+    font-size: 0.9rem;
+  }
+
+  .orders-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
   }
 }
 
@@ -908,4 +945,25 @@
 .status-dropdown-item:hover:not(.active) {
   background: var(--color-surface-alt);
   color: var(--color-accent);
+}
+
+/* Real-time notification animations */
+@keyframes slideInRight {
+  from {
+    transform: translateX(400px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
 }

@@ -2,68 +2,86 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import '../../styles/reels.css';
-import axios from 'axios';
+import { useProtectedRequest } from '../../hooks/useProtectedRequest';
+import api from '../../services/api';
 import ReelFeed from '../../components/ReelFeed';
 import { API_BASE_URL } from '../../config';
+import { API_ENDPOINTS } from '../../constants';
 
 const Saved = () => {
     const [videos, setVideos] = useState([]);
     const location = useLocation();
 
+    const { data, error, loading, refetch } = useProtectedRequest(
+        () => api.get(API_ENDPOINTS.FOOD.SAVE),
+        []
+    );
+
     useEffect(() => {
-        axios.get(`${API_BASE_URL}/api/food/save`, { withCredentials: true })
-            .then(response => {
-                const foods = response.data.responseSavedFoods || [];
-                const savedFoods = foods.map((item) => ({
-                    _id: item._id,
-                    name: item.name || '',
-                    video: item.video,
-                    description: item.description,
-                    likeCount: item.likeCount,
-                    savesCount: item.savesCount,
-                    commentCount: item.commentCount,
-                    commentsCount: item.commentCount,
-                    foodPartner: {
-                        _id: item.foodPartner?._id,
-                        name: (typeof item.foodPartner?.name === 'string' && item.foodPartner.name.trim().length > 0)
-                            ? item.foodPartner.name
-                            : 'Store',
-                        profileImage: item.foodPartner?.profileImage || 'https://ik.imagekit.io/u1000/Food%20Vector%20Icon.svg?updatedAt=1759741838210',
-                    },
-                    isFollowing: item.isFollowing || false,
-                    isLiked: item.isLiked || false,
-                    isSaved: item.isSaved || false,
-                    shareCount: item.shareCount || 0,
-                }));
-                                const params = new URLSearchParams(location.search);
-                const highlightId = params.get('highlight');
-                if (highlightId) {
-                  const idx = savedFoods.findIndex(f => f._id === highlightId);
-                  if (idx > 0) {
+        if (data && Array.isArray(data.data)) {
+            const foods = data.data;
+            const savedFoods = foods.map((item) => ({
+                _id: item._id,
+                name: item.name || '',
+                video: item.video,
+                description: item.description,
+                likeCount: item.likeCount,
+                savesCount: item.savesCount,
+                commentCount: item.commentCount,
+                commentsCount: item.commentCount,
+                foodPartner: {
+                    _id: item.foodPartner?._id,
+                    name: (typeof item.foodPartner?.name === 'string' && item.foodPartner.name.trim().length > 0)
+                        ? item.foodPartner.name
+                        : 'Store',
+                    profileImage: item.foodPartner?.profileImage || 'https://ik.imagekit.io/u1000/Food%20Vector%20Icon.svg?updatedAt=1759741838210',
+                },
+                isFollowing: item.isFollowing || false,
+                isLiked: item.isLiked || false,
+                isSaved: item.isSaved || false,
+                shareCount: item.shareCount || 0,
+            }));
+            const params = new URLSearchParams(location.search);
+            const highlightId = params.get('highlight');
+            if (highlightId) {
+                const idx = savedFoods.findIndex(f => f._id === highlightId);
+                if (idx > 0) {
                     const [highlighted] = savedFoods.splice(idx, 1);
                     savedFoods.unshift(highlighted);
-                  }
                 }
-                setVideos(savedFoods);
-            });
-    }, []);
+            }
+            setVideos(savedFoods);
+        } else {
+            setVideos([]);
+        }
+    }, [data, location.search]);
+
+    useEffect(() => {
+        if (error) {
+            alert(error?.response?.data?.message || 'Error loading saved videos.');
+        }
+    }, [error]);
 
     async function likeVideo(item) {
-        const response = await axios.post(`${API_BASE_URL}/api/food/like`, { foodId: item._id }, { withCredentials: true });
-        if (response.data.like) {
-            setVideos((prev) => prev.map((v) => v._id === item._id ? { ...v, likeCount: v.likeCount + 1, isLiked: true } : v));
-        } else {
-            setVideos((prev) => prev.map((v) => v._id === item._id ? { ...v, likeCount: v.likeCount - 1, isLiked: false } : v));
-        }
+        try {
+            const response = await api.post(API_ENDPOINTS.FOOD.LIKE, { foodId: item._id });
+            if (response.data.data) {
+                setVideos((prev) => prev.map((v) => v._id === item._id ? { ...v, likeCount: v.likeCount + 1, isLiked: true } : v));
+            } else {
+                setVideos((prev) => prev.map((v) => v._id === item._id ? { ...v, likeCount: v.likeCount - 1, isLiked: false } : v));
+            }
+        } catch {}
     }
 
     async function saveVideo(item) {
-        const response = await axios.post(`${API_BASE_URL}/api/food/save`, { foodId: item._id }, { withCredentials: true });
-        if (response.data.save) {
-            setVideos((prev) => prev.map((v) => v._id === item._id ? { ...v, savesCount: v.savesCount + 1, isSaved: true } : v));
-        } else {
-            setVideos((prev) => prev.map((v) => v._id === item._id ? { ...v, savesCount: Math.max(0, (v.savesCount ?? 1) - 1), isSaved: false } : v));
-        }
+        try {
+            const response = await api.post(API_ENDPOINTS.FOOD.SAVE, { foodId: item._id });
+            if (response.data.data) {
+                setVideos((prev) => prev.map((v) => v._id === item._id ? { ...v, savesCount: v.savesCount + 1, isSaved: true } : v));
+            } else {
+                setVideos((prev) => prev.map((v) => v._id === item._id ? { ...v, savesCount: Math.max(0, (v.savesCount ?? 1) - 1), isSaved: false } : v));
+            }
+        } catch {}
     }
 
     function commentVideo(item) {}

@@ -1,14 +1,27 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import CommentsModal from './CommentsModal'
-import axios from 'axios'
-import { API_BASE_URL } from '../config'
-import { FaRegHeart, FaHeart, FaRegComment, FaRegBookmark, FaBookmark, FaShareAlt } from 'react-icons/fa'
+import api from '../services/api';
+import { API_ENDPOINTS } from '../constants'
+import { FaRegHeart, FaHeart, FaRegComment, FaRegBookmark, FaBookmark, FaShareAlt, FaShoppingCart } from 'react-icons/fa'
 import ShareModal from './ShareModal';
 import OrderForm from './OrderForm';
+import { useCart } from '../context/CartContext';
+import toast from 'react-hot-toast';
 
 const ReelFeed = ({ items = [], onLike, onSave, onComment, onFollow, emptyMessage = 'No videos yet.', customRender }) => {
   const [hearts, setHearts] = useState([]);
+  const { cart, addItem, updateItemQuantity, removeItem } = useCart();
+  const [addingToCart, setAddingToCart] = useState(new Set());
+  
+  // Helper to get quantity of item in cart
+  const getItemQuantity = (foodId) => {
+    const cartItem = cart.items.find(item => {
+      const itemFoodId = typeof item.food === 'object' ? item.food._id : item.food;
+      return itemFoodId === foodId;
+    });
+    return cartItem ? cartItem.quantity : 0;
+  };
 
   useEffect(() => {
     if (hearts.length === 0) return;
@@ -119,7 +132,7 @@ const ReelFeed = ({ items = [], onLike, onSave, onComment, onFollow, emptyMessag
         : i
     ));
     try {
-      await axios.post(`${API_BASE_URL}/api/food/share`, { foodId: item._id }, { withCredentials: true });
+      await api.post(API_ENDPOINTS.FOOD.SHARE, { foodId: item._id });
     } catch (e) {
       setLocalItems(prev => prev.map(i =>
         i._id === item._id
@@ -151,7 +164,7 @@ const ReelFeed = ({ items = [], onLike, onSave, onComment, onFollow, emptyMessag
     ));
     if (onFollow) onFollow(item);
     try {
-      await axios.post(`${API_BASE_URL}/api/food-partner/follow`, { foodpartner: foodPartnerId }, { withCredentials: true });
+      await api.post(API_ENDPOINTS.FOOD_PARTNER.FOLLOW, { foodpartner: foodPartnerId });
     } catch (e) {
       setLocalItems(prev => prev.map(i =>
         i.foodPartner && i.foodPartner._id === foodPartnerId
@@ -171,11 +184,11 @@ const ReelFeed = ({ items = [], onLike, onSave, onComment, onFollow, emptyMessag
   const fetchComments = useCallback(async (foodId) => {
     setLoadingComments(true)
     try {
-      const res = await axios.get(`${API_BASE_URL}/api/food/comment?foodId=${foodId}`, { withCredentials: true })
-      setComments(res.data.comments || [])
+      const res = await api.get(`${API_ENDPOINTS.FOOD.COMMENT}?foodId=${foodId}`);
+      setComments(Array.isArray(res.data.data) ? res.data.data : [])
       setLocalItems(prev => prev.map(item =>
         item._id === foodId
-          ? { ...item, commentsCount: Array.isArray(res.data.comments) ? res.data.comments.length : item.commentsCount }
+          ? { ...item, commentsCount: Array.isArray(res.data.data) ? res.data.data.length : item.commentsCount }
           : item
       ));
     } catch (e) {
@@ -261,6 +274,78 @@ const ReelFeed = ({ items = [], onLike, onSave, onComment, onFollow, emptyMessag
 
   const [orderModalOpen, setOrderModalOpen] = useState(false);
   const [orderFood, setOrderFood] = useState(null);
+
+  const handleAddToCart = async (item) => {
+    setAddingToCart(prev => new Set(prev).add(item._id));
+    
+    const result = await addItem(item, 1);
+    
+    setAddingToCart(prev => {
+      const next = new Set(prev);
+      next.delete(item._id);
+      return next;
+    });
+
+    if (result.success) {
+      toast.success(`${item.name} added to cart!`);
+    } else {
+      toast.error(result.error || 'Failed to add to cart');
+    }
+  };
+  
+  const handleIncrementQuantity = async (item) => {
+    const currentQty = getItemQuantity(item._id);
+    if (currentQty === 0) {
+      handleAddToCart(item);
+    } else {
+      setAddingToCart(prev => new Set(prev).add(item._id));
+      try {
+        const result = await updateItemQuantity(item._id, currentQty + 1);
+        if (!result.success) {
+          toast.error(result.error || 'Failed to update quantity');
+        }
+      } finally {
+        setAddingToCart(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(item._id);
+          return newSet;
+        });
+      }
+    }
+  };
+  
+  const handleDecrementQuantity = async (item) => {
+    const currentQty = getItemQuantity(item._id);
+    if (currentQty <= 1) {
+      setAddingToCart(prev => new Set(prev).add(item._id));
+      try {
+        const result = await removeItem(item._id);
+        if (!result.success) {
+          toast.error(result.error || 'Failed to remove item');
+        }
+      } finally {
+        setAddingToCart(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(item._id);
+          return newSet;
+        });
+      }
+    } else {
+      setAddingToCart(prev => new Set(prev).add(item._id));
+      try {
+        const result = await updateItemQuantity(item._id, currentQty - 1);
+        if (!result.success) {
+          toast.error(result.error || 'Failed to update quantity');
+        }
+      } finally {
+        setAddingToCart(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(item._id);
+          return newSet;
+        });
+      }
+    }
+  };
 
   return (
     <div className="reels-page">
@@ -417,23 +502,114 @@ const ReelFeed = ({ items = [], onLike, onSave, onComment, onFollow, emptyMessag
                   <div className="reel-food-title" style={{ fontWeight: 700, fontSize: '1.12rem', color: '#fff', marginBottom: 2 }}>
                     {item.name}
                     {item.isOrderable && (
-                      <button
-                        style={{
-                          marginLeft: 12,
-                          background: 'var(--color-accent)',
-                          color: '#fff',
-                          border: 'none',
-                          borderRadius: '6px',
-                          fontWeight: 700,
-                          fontSize: '1.08rem',
-                          padding: '4px 14px',
-                          cursor: 'pointer',
-                          boxShadow: '0 2px 8px rgba(226,55,71,0.12)'
-                        }}
-                        onClick={() => { setOrderFood(item); setOrderModalOpen(true); }}
-                      >
-                        ${item.price} Order
-                      </button>
+                      <div style={{ display: 'inline-flex', gap: '8px', marginLeft: 12, alignItems: 'center' }}>
+                        {getItemQuantity(item._id) === 0 ? (
+                          <button
+                            style={{
+                              background: 'rgba(255,255,255,0.2)',
+                              backdropFilter: 'blur(10px)',
+                              color: '#fff',
+                              border: '1.5px solid rgba(255,255,255,0.4)',
+                              borderRadius: '6px',
+                              fontWeight: 700,
+                              fontSize: '1.08rem',
+                              padding: '6px 14px',
+                              cursor: 'pointer',
+                              boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              transition: 'all 0.2s'
+                            }}
+                            onClick={() => handleAddToCart(item)}
+                            disabled={addingToCart.has(item._id)}
+                          >
+                            <FaShoppingCart size={16} />
+                            {addingToCart.has(item._id) ? 'Adding...' : 'Add'}
+                          </button>
+                        ) : (
+                          <div style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            background: 'rgba(255,255,255,0.2)',
+                            backdropFilter: 'blur(10px)',
+                            border: '1.5px solid rgba(255,255,255,0.4)',
+                            borderRadius: '6px',
+                            padding: '4px 8px',
+                            boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                            gap: '8px'
+                          }}>
+                            <button
+                              style={{
+                                background: 'rgba(255,255,255,0.2)',
+                                color: '#fff',
+                                border: 'none',
+                                borderRadius: '4px',
+                                width: '28px',
+                                height: '28px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                cursor: 'pointer',
+                                fontWeight: 700,
+                                fontSize: '1.2rem',
+                                transition: 'all 0.2s'
+                              }}
+                              onClick={() => handleDecrementQuantity(item)}
+                              disabled={addingToCart.has(item._id)}
+                            >
+                              −
+                            </button>
+                            <span style={{
+                              color: '#fff',
+                              fontWeight: 700,
+                              fontSize: '1rem',
+                              minWidth: '24px',
+                              textAlign: 'center'
+                            }}>
+                              {addingToCart.has(item._id) ? '...' : getItemQuantity(item._id)}
+                            </span>
+                            <button
+                              style={{
+                                background: 'rgba(255,255,255,0.2)',
+                                color: '#fff',
+                                border: 'none',
+                                borderRadius: '4px',
+                                width: '28px',
+                                height: '28px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                cursor: 'pointer',
+                                fontWeight: 700,
+                                fontSize: '1.2rem',
+                                transition: 'all 0.2s'
+                              }}
+                              onClick={() => handleIncrementQuantity(item)}
+                              disabled={addingToCart.has(item._id)}
+                            >
+                              +
+                            </button>
+                          </div>
+                        )}
+                        <button
+                          style={{
+                            background: 'var(--color-accent)',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: '6px',
+                            fontWeight: 700,
+                            fontSize: '1.08rem',
+                            padding: '6px 14px',
+                            cursor: 'pointer',
+                            boxShadow: '0 2px 8px rgba(226,55,71,0.12)',
+                            transition: 'all 0.2s'
+                          }}
+                          onClick={() => { setOrderFood(item); setOrderModalOpen(true); }}
+                        >
+                          ${item.price} Order
+                        </button>
+                      </div>
                     )}
                   </div>
                   <div className="reel-description-wrapper">

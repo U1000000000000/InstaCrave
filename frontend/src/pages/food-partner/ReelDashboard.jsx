@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import axios from 'axios';
-import { API_BASE_URL } from '../../config';
+import { API_ENDPOINTS } from '../../constants';
 import '../../styles/profile.css';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import api from '../../services/api';
+import { useProtectedRequest } from '../../hooks/useProtectedRequest';
 
 const tabStyles = {
   base: {
@@ -25,8 +26,30 @@ const tabStyles = {
 
 const ReelDashboard = () => {
   const { id } = useParams();
-  const [foodItem, setFoodItem] = useState(null);
-  const [comments, setComments] = useState([]);
+  const { data: foodPartnerData, loading: foodLoading, error: foodError, refetch: refetchFood } = useProtectedRequest(
+    () => api.get(API_ENDPOINTS.FOOD_PARTNER.BASE),
+    []
+  );
+  const { data: commentsData, loading: commentsLoading, error: commentsError, refetch: refetchComments } = useProtectedRequest(
+    async () => {
+      try {
+        return await api.get(`${API_ENDPOINTS.FOOD.COMMENT}s?foodId=${id}`);
+      } catch (err) {
+        // If 404, treat as no comments (return empty array structure)
+        if (err.response && err.response.status === 404) {
+          return { data: [] };
+        }
+        throw err;
+      }
+    },
+    [id]
+  );
+  // Find the food item by id
+  const foodItemsArr = Array.isArray(foodPartnerData?.data?.foodItems)
+    ? foodPartnerData.data.foodItems
+    : [];
+  const foodItem = foodItemsArr.find(f => f._id === id || f.id === id);
+  const comments = Array.isArray(commentsData?.data) ? commentsData.data : [];
     const [showComments, setShowComments] = useState(true);
   const [editingName, setEditingName] = useState(false);
   const [editingDescription, setEditingDescription] = useState(false);
@@ -41,24 +64,13 @@ const ReelDashboard = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   useEffect(() => {
-    axios.get(`${API_BASE_URL}/api/food-partner`, { withCredentials: true })
-      .then(response => {
-        const found = (response.data.foodPartner.foodItems || []).find(f => f._id === id || f.id === id);
-        setFoodItem(found);
-        setNameInput(found?.name || '');
-        setDescInput(found?.description || '');
-        setOrderableInput(found?.isOrderable ?? false);
-        setPriceInput(found?.price?.toString() ?? '');
-      });
-        axios.get(`${API_BASE_URL}/api/food/comments?foodId=${id}`, { withCredentials: true })
-      .then(response => {
-        setComments(response.data.comments || []);
-      })
-      .catch(error => {
-        console.error('Error fetching comments:', error);
-        setComments([]);
-      });
-  }, [id]);
+    if (foodItem) {
+      setNameInput(foodItem.name || '');
+      setDescInput(foodItem.description || '');
+      setOrderableInput(foodItem.isOrderable ?? false);
+      setPriceInput(foodItem.price?.toString() ?? '');
+    }
+  }, [foodItem]);
 
   const handleSaveField = async (field, value) => {
     setIsSaving(true);
@@ -68,8 +80,8 @@ const ReelDashboard = () => {
       if (field === 'description') payload.description = descInput;
       if (field === 'isOrderable') payload.isOrderable = value;
       if (field === 'price') payload.price = Number(priceInput);
-      await axios.patch(`${API_BASE_URL}/api/food/${id}`, payload, { withCredentials: true });
-      setFoodItem(f => ({ ...f, ...payload }));
+      await api.patch(`${API_ENDPOINTS.FOOD.BASE}/${id}`, payload);
+      refetchFood();
       if (field === 'name') setEditingName(false);
       if (field === 'description') setEditingDescription(false);
       if (field === 'isOrderable') setEditingOrderable(false);
@@ -87,22 +99,20 @@ const ReelDashboard = () => {
     try {
       const formData = new FormData();
       formData.append('video', videoFile);
-      await axios.patch(`${API_BASE_URL}/api/food/${id}`, formData, {
-        withCredentials: true,
+      await api.patch(`${API_ENDPOINTS.FOOD.BASE}/${id}`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-            axios.get(`${API_BASE_URL}/api/food-partner`, { withCredentials: true })
-        .then(response => {
-          const found = (response.data.foodPartner.foodItems || []).find(f => f._id === id || f.id === id);
-          setFoodItem(found);
-        });
+      refetchFood();
       setVideoFile(null);
-          } catch (e) {
-          }
+    } catch (e) {}
     setIsSaving(false);
   };
 
-  if (!foodItem) return <LoadingSpinner fullScreen color="accent" />;
+  if (foodLoading || commentsLoading) return <LoadingSpinner fullScreen color="accent" />;
+  if (foodError || (commentsError && (!commentsError.response || commentsError.response.status !== 404))) {
+    return <div style={{color:'var(--color-danger)',padding:32}}>Error loading food item or comments.</div>;
+  }
+  if (!foodItem) return <div style={{color:'var(--color-danger)',padding:32}}>Food item not found.</div>;
   
   return (
     <>
@@ -440,10 +450,11 @@ const ReelDashboard = () => {
                       onClick={async () => {
                         setShowDeleteModal(false);
                         try {
-                          await axios.delete(`${API_BASE_URL}/api/food/${id}`, { withCredentials: true });
+                          await api.delete(`${API_ENDPOINTS.FOOD.BASE}/${id}`);
                           window.location.href = '/food-partner/dashboard';
                         } catch (err) {
-                                                  }
+                          alert('Failed to delete food item. Please try again.');
+                        }
                       }}
                       style={{background:'var(--color-accent)',color:'#fff',border:'none',borderRadius:4,padding:'7px 18px',fontWeight:700,cursor:'pointer'}}
                     >Delete Permanently</button>
