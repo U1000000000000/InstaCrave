@@ -49,14 +49,14 @@ jobs:
       working-directory: ./backend
       run: npm run test:coverage
 
-    # Codecov upload disabled to avoid rate limits
-    # - name: Upload coverage to Codecov
-    #   uses: codecov/codecov-action@v3
-    #   with:
-    #     files: ./backend/coverage/lcov.info
-    #     flags: backend
-    #     name: backend-coverage
-    #     fail_ci_if_error: true
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        files: ./backend/coverage/lcov.info
+        flags: backend
+        name: backend-coverage
+        fail_ci_if_error: true
 
     - name: Archive test results
       if: always()

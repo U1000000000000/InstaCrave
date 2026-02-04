@@ -19,13 +19,13 @@ const { addEmailJob, addAnalyticsJob, JOB_TYPES } = require('../queue/index');
 const getAccessCookieOptions = () => ({
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",
-  sameSite: "strict",
+  sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
   maxAge: 15 * 60 * 1000,
 });
 const getRefreshCookieOptions = () => ({
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",
-  sameSite: "strict",
+  sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
   maxAge: 30 * 24 * 60 * 60 * 1000,
 });
 
