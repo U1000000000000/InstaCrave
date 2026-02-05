@@ -472,4 +472,23 @@ router.delete('/sessions/:sessionId',
     authController.revokeSession
 );
 
+/**
+ * @swagger
+ * /api/v1/auth/websocket-token:
+ *   get:
+ *     summary: Get short-lived token for WebSocket authentication
+ *     tags: [Auth]
+ *     description: |
+ *       Issues a short-lived JWT (60s) for Socket.IO authentication.
+ *     responses:
+ *       200:
+ *         description: Token retrieved successfully
+ *       401:
+ *         description: Not authenticated
+ */
+router.get('/websocket-token',
+    authMiddleware.authAnyMiddleware,
+    authController.issueWebSocketToken
+);
+
 module.exports = router;

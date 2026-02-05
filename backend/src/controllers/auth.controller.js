@@ -31,6 +31,19 @@ const getRefreshCookieOptions = () => ({
 
 const sanitizeHtml = require("sanitize-html");
 
+const issueWebSocketToken = (req, res) => {
+  const principal = req.user || req.foodPartner;
+  if (!principal || !principal._id) {
+    throw new AppError("Not authenticated", 401);
+  }
+
+  const role = req.user ? "user" : "foodPartner";
+  const payload = { id: principal._id, role, type: "ws" };
+  const token = jwt.sign(payload, process.env.ACCESS_TOKEN_SECRET, { expiresIn: "60s" });
+
+  res.status(200).json({ token, expiresIn: 60 });
+};
+
 // NOTE: Argon2 config in .env was tuned through trial and error
 // Started with defaults, but login was taking 500ms on M1 Mac
 // Reduced to current settings which gives ~150ms (acceptable tradeoff)
@@ -470,4 +483,5 @@ module.exports = {
   refreshToken,
   listSessions,
   revokeSession,
+  issueWebSocketToken,
 };
