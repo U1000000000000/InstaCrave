@@ -65,7 +65,7 @@ const registerUser = catchAsync(async (req, res) => {
   res.cookie("sessionId", session._id.toString(), {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
     maxAge: 30 * 24 * 60 * 60 * 1000,
     path: "/",
   });
@@ -129,7 +129,7 @@ const loginUser = catchAsync(async (req, res) => {
   res.cookie("sessionId", session._id.toString(), {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
     maxAge: 30 * 24 * 60 * 60 * 1000,
     path: "/",
   });
@@ -174,7 +174,7 @@ const logoutUser = catchAsync(async (req, res) => {
   res.clearCookie("sessionId", {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
     path: "/",
   });
   responseUtil.sendItemResponse(res, {
@@ -229,7 +229,7 @@ const registerFoodPartner = catchAsync(async (req, res) => {
   res.cookie("sessionId", session._id.toString(), {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
     maxAge: 30 * 24 * 60 * 60 * 1000,
     path: "/",
   });
@@ -272,7 +272,7 @@ const loginFoodPartner = catchAsync(async (req, res) => {
   res.cookie("sessionId", session._id.toString(), {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
     maxAge: 30 * 24 * 60 * 60 * 1000,
     path: "/",
   });
@@ -317,7 +317,7 @@ const logoutFoodPartner = catchAsync(async (req, res) => {
   res.clearCookie("sessionId", {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
     path: "/",
   });
   responseUtil.sendItemResponse(res, {
