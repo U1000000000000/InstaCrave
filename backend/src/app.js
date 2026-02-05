@@ -71,7 +71,7 @@ app.get('/api/v1/csrf-token', (req, res) => {
     const csrfMiddleware = csrf({
         cookie: {
             httpOnly: true,
-            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+            sameSite: 'lax',
             secure: process.env.NODE_ENV === 'production',
         },
     });

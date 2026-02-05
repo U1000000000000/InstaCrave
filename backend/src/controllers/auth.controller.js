@@ -19,13 +19,13 @@ const { addEmailJob, addAnalyticsJob, JOB_TYPES } = require('../queue/index');
 const getAccessCookieOptions = () => ({
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",
-  sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+  sameSite: "lax",
   maxAge: 15 * 60 * 1000,
 });
 const getRefreshCookieOptions = () => ({
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",
-  sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+  sameSite: "lax",
   maxAge: 30 * 24 * 60 * 60 * 1000,
 });
 
@@ -78,7 +78,7 @@ const registerUser = catchAsync(async (req, res) => {
   res.cookie("sessionId", session._id.toString(), {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    sameSite: "lax",
     maxAge: 30 * 24 * 60 * 60 * 1000,
     path: "/",
   });
@@ -140,7 +140,7 @@ const loginUser = catchAsync(async (req, res) => {
   const cookieOptions = {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    sameSite: "lax",
     maxAge: 30 * 24 * 60 * 60 * 1000,
     path: "/",
   };
@@ -148,18 +148,6 @@ const loginUser = catchAsync(async (req, res) => {
   res.cookie("accessToken", accessToken, getAccessCookieOptions());
   res.cookie("refreshToken", refreshToken, getRefreshCookieOptions());
   res.cookie("sessionId", session._id.toString(), cookieOptions);
-  
-  // Debug log cookie settings in production
-  if (process.env.NODE_ENV === "production") {
-    logger.info('Login successful - cookies set', {
-      userId: user._id,
-      cookieSettings: {
-        accessToken: getAccessCookieOptions(),
-        refreshToken: getRefreshCookieOptions(),
-        sessionId: cookieOptions
-      }
-    });
-  }
   
   responseUtil.sendItemResponse(res, {
     data: {
@@ -202,7 +190,7 @@ const logoutUser = catchAsync(async (req, res) => {
   res.clearCookie("sessionId", {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    sameSite: "lax",
     path: "/",
   });
   responseUtil.sendItemResponse(res, {
@@ -257,7 +245,7 @@ const registerFoodPartner = catchAsync(async (req, res) => {
   res.cookie("sessionId", session._id.toString(), {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    sameSite: "lax",
     maxAge: 30 * 24 * 60 * 60 * 1000,
     path: "/",
   });
@@ -300,7 +288,7 @@ const loginFoodPartner = catchAsync(async (req, res) => {
   res.cookie("sessionId", session._id.toString(), {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    sameSite: "lax",
     maxAge: 30 * 24 * 60 * 60 * 1000,
     path: "/",
   });
@@ -345,7 +333,7 @@ const logoutFoodPartner = catchAsync(async (req, res) => {
   res.clearCookie("sessionId", {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    sameSite: "lax",
     path: "/",
   });
   responseUtil.sendItemResponse(res, {
@@ -355,25 +343,8 @@ const logoutFoodPartner = catchAsync(async (req, res) => {
 });
 // Refresh Token Endpoint (for both user and food partner)
 const refreshToken = catchAsync(async (req, res) => {
-  // Debug: log incoming cookies for refresh
   const refreshToken = req.cookies.refreshToken;
   const sessionId = req.cookies.sessionId;
-  
-  // Debug log what cookies were received
-  if (process.env.NODE_ENV === "production") {
-    logger.info('Refresh token request received', {
-      hasCookies: !!req.cookies,
-      cookieKeys: Object.keys(req.cookies || {}),
-      hasRefreshToken: !!refreshToken,
-      hasSessionId: !!sessionId,
-      headers: {
-        cookie: req.headers.cookie,
-        origin: req.headers.origin,
-        referer: req.headers.referer
-      }
-    });
-  }
-  
   if (!refreshToken || !sessionId)
     throw new AppError("No refresh token or sessionId provided", 401);
   // Find session by sessionId

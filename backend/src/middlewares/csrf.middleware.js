@@ -6,7 +6,7 @@ const csrfProtection = process.env.NODE_ENV === 'test'
   : csrf({
       cookie: {
         httpOnly: true,
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+        sameSite: 'lax',
         secure: process.env.NODE_ENV === 'production',
       },
     });
