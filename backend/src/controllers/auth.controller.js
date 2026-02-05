@@ -124,15 +124,30 @@ const loginUser = catchAsync(async (req, res) => {
     ip,
     tokenHash: refreshTokenHash,
   });
-  res.cookie("accessToken", accessToken, getAccessCookieOptions());
-  res.cookie("refreshToken", refreshToken, getRefreshCookieOptions());
-  res.cookie("sessionId", session._id.toString(), {
+  const cookieOptions = {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
     maxAge: 30 * 24 * 60 * 60 * 1000,
     path: "/",
-  });
+  };
+  
+  res.cookie("accessToken", accessToken, getAccessCookieOptions());
+  res.cookie("refreshToken", refreshToken, getRefreshCookieOptions());
+  res.cookie("sessionId", session._id.toString(), cookieOptions);
+  
+  // Debug log cookie settings in production
+  if (process.env.NODE_ENV === "production") {
+    logger.info('Login successful - cookies set', {
+      userId: user._id,
+      cookieSettings: {
+        accessToken: getAccessCookieOptions(),
+        refreshToken: getRefreshCookieOptions(),
+        sessionId: cookieOptions
+      }
+    });
+  }
+  
   responseUtil.sendItemResponse(res, {
     data: {
       _id: user._id,
@@ -330,6 +345,22 @@ const refreshToken = catchAsync(async (req, res) => {
   // Debug: log incoming cookies for refresh
   const refreshToken = req.cookies.refreshToken;
   const sessionId = req.cookies.sessionId;
+  
+  // Debug log what cookies were received
+  if (process.env.NODE_ENV === "production") {
+    logger.info('Refresh token request received', {
+      hasCookies: !!req.cookies,
+      cookieKeys: Object.keys(req.cookies || {}),
+      hasRefreshToken: !!refreshToken,
+      hasSessionId: !!sessionId,
+      headers: {
+        cookie: req.headers.cookie,
+        origin: req.headers.origin,
+        referer: req.headers.referer
+      }
+    });
+  }
+  
   if (!refreshToken || !sessionId)
     throw new AppError("No refresh token or sessionId provided", 401);
   // Find session by sessionId
