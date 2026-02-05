@@ -1,10 +1,6 @@
 {
   "rewrites": [
     {
-      "source": "/socket.io/:path*",
-      "destination": "https://instacrave.zeabur.app/socket.io/:path*"
-    },
-    {
       "source": "/api/v1/:path*",
       "destination": "https://instacrave.zeabur.app/api/v1/:path*"
     },
@@ -13,20 +9,5 @@
       "destination": "https://instacrave.zeabur.app/api/:path*"
     },
     { "source": "/(.*)", "destination": "/" }
-  ],
-  "headers": [
-    {
-      "source": "/socket.io/:path*",
-      "headers": [
-        {
-          "key": "Connection",
-          "value": "Upgrade"
-        },
-        {
-          "key": "Upgrade",
-          "value": "websocket"
-        }
-      ]
-    }
   ]
 }

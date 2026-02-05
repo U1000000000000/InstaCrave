@@ -15,7 +15,7 @@
 
 import React, { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react';
 import { io } from 'socket.io-client';
-import { API_BASE_URL } from '../config';
+import { WEBSOCKET_URL } from '../config';
 
 const WebSocketContext = createContext(null);
 
@@ -86,9 +86,8 @@ export const WebSocketProvider = ({ children }) => {
 
     try {
       // Create Socket.IO client with cookie-based authentication
-      // Use relative path in production (for Vercel proxy), full URL in dev
-      const socketUrl = API_BASE_URL || window.location.origin;
-      const newSocket = io(socketUrl, {
+      // WebSocket must connect directly to backend (Vercel can't proxy WebSockets)
+      const newSocket = io(WEBSOCKET_URL, {
         withCredentials: true, // Send cookies automatically
         transports: ['websocket', 'polling'], // WebSocket preferred, polling fallback
         reconnection: false, // We'll handle reconnection manually
