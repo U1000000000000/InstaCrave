@@ -13,6 +13,7 @@ export const API_ENDPOINTS = {
     FOOD_PARTNER_REGISTER: '/api/v1/auth/food-partner/register',
     FOOD_PARTNER_LOGOUT: '/api/v1/auth/food-partner/logout',
     LOGOUT: '/api/v1/auth/logout',
+    WEBSOCKET_TOKEN: '/api/v1/auth/websocket-token',
   },
   FOOD: {
     BASE: '/api/v1/food',
@@ -24,7 +25,7 @@ export const API_ENDPOINTS = {
     SHARE: '/api/v1/food/share',
   },
   USER: {
-    BASE: '/api/v1/user/',
+    BASE: '/api/v1/user',
     COMMENTS: '/api/v1/user/comments',
     LIKES: '/api/v1/user/likes',
     FOLLOWING: '/api/v1/user/follows',

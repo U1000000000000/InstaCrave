@@ -16,6 +16,8 @@
 import React, { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react';
 import { io } from 'socket.io-client';
 import { WEBSOCKET_URL } from '../config';
+import api from '../services/api';
+import { API_ENDPOINTS } from '../constants';
 
 const WebSocketContext = createContext(null);
 
@@ -81,14 +83,30 @@ export const WebSocketProvider = ({ children }) => {
   /**
    * Connect to WebSocket server with authentication via cookies
    */
-  const connect = useCallback(() => {
+  const connect = useCallback(async () => {
     setConnectionStatus('connecting');
 
     try {
+      // Fetch a token explicitly for WebSocket authentication
+      let token = null;
+      try {
+        const tokenRes = await api.get(API_ENDPOINTS.AUTH.WEBSOCKET_TOKEN);
+        token = tokenRes?.data?.token || null;
+      } catch (error) {
+        token = null;
+      }
+
+      if (!token) {
+        setIsConnected(false);
+        setConnectionStatus('error');
+        return;
+      }
+
       // Create Socket.IO client with cookie-based authentication
       // WebSocket must connect directly to backend (Vercel can't proxy WebSockets)
       const newSocket = io(WEBSOCKET_URL, {
         withCredentials: true, // Send cookies automatically
+        auth: { token }, // Explicit JWT for WebSocket auth
         transports: ['websocket', 'polling'], // WebSocket preferred, polling fallback
         reconnection: false, // We'll handle reconnection manually
         timeout: 10000,
