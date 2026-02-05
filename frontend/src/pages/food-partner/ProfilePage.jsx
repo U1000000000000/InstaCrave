@@ -63,7 +63,7 @@ const FoodPartnerProfile = () => {
 
   const handleEditSave = async () => {
     setEditLoading(true);
-    setError('');
+    setEditError('');
     try {
       if (editField === 'profileImage') {
         const file = fileInputRef.current.files[0];
@@ -90,7 +90,7 @@ const FoodPartnerProfile = () => {
   const handleEditCancel = () => {
     setEditField(null);
     setEditValue('');
-    setError('');
+    setEditError('');
     setMenuOpen('');
   };
 

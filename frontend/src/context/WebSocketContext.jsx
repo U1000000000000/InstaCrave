@@ -86,7 +86,9 @@ export const WebSocketProvider = ({ children }) => {
 
     try {
       // Create Socket.IO client with cookie-based authentication
-      const newSocket = io(API_BASE_URL || 'http://localhost:3000', {
+      // Use relative path in production (for Vercel proxy), full URL in dev
+      const socketUrl = API_BASE_URL || window.location.origin;
+      const newSocket = io(socketUrl, {
         withCredentials: true, // Send cookies automatically
         transports: ['websocket', 'polling'], // WebSocket preferred, polling fallback
         reconnection: false, // We'll handle reconnection manually
