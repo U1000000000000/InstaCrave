@@ -38,11 +38,13 @@ const setupScheduledJobs = async () => {
 // Setup scheduled jobs after a short delay to ensure workers are ready
 setTimeout(setupScheduledJobs, 2000);
 
-const server = app.listen(3000, async () => {
+const PORT = process.env.PORT || 3000;
+
+const server = app.listen(PORT, async () => {
     logger.info('Server started successfully', {
-      port: 3000,
-      queueDashboard: 'http://localhost:3000/admin/queues',
-      apiDocs: 'http://localhost:3000/api/v1/docs',
+      port: PORT,
+      queueDashboard: `http://localhost:${PORT}/admin/queues`,
+      apiDocs: `http://localhost:${PORT}/api/v1/docs`,
     });
     
     // Initialize Socket.IO for real-time communication
