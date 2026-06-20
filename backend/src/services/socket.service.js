@@ -34,7 +34,15 @@ const initializeSocketServer = async (httpServer) => {
     // Create Socket.IO server with CORS configuration
     io = new Server(httpServer, {
       cors: {
-        origin: [process.env.FRONTEND_URL || 'http://localhost:5173', process.env.FRONTEND_URL_LOCAL || 'http://localhost:5173'],
+        origin: function (origin, callback) {
+          const allowed = [process.env.FRONTEND_URL, process.env.FRONTEND_URL_LOCAL];
+          // Allow if no origin (postman), exact match, or a vercel preview URL
+          if (!origin || allowed.includes(origin) || origin.endsWith('.vercel.app') || origin.endsWith('.onrender.com')) {
+            callback(null, true);
+          } else {
+            callback(null, false);
+          }
+        },
         credentials: true,
         methods: ['GET', 'POST'],
       },

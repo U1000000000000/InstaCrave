@@ -8,7 +8,8 @@ const logger = require('../services/logger.service');
 const allowedOrigins = [
     process.env.FRONTEND_URL,
     process.env.FRONTEND_URL_LOCAL,
-    // Add more trusted origins as needed
+    'https://*.vercel.app',
+    'https://*.onrender.com'
 ].filter(Boolean).map(origin => origin.trim()); // Remove undefined/null and trim whitespace
 
 // Log allowed origins on startup
