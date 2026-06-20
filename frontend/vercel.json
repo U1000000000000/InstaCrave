@@ -6,7 +6,7 @@
     },
     {
       "source": "/api/:path*",
-      "destination": "https://rendersal.onrender.com/instacraveapi/:path*"
+      "destination": "https://rendersal.onrender.com/instacrave/api/:path*"
     },
     { "source": "/(.*)", "destination": "/" }
   ]
