@@ -77,22 +77,22 @@ const initializeSocketServer = async (httpServer) => {
     // Authentication middleware - verify JWT token from cookies
     io.use(async (socket, next) => {
       try {
-        // Extract token from cookies (sent automatically with withCredentials: true)
-        const cookies = socket.handshake.headers.cookie;
-        let token = null;
+        // 1. Primary: check auth.token (explicitly provided by frontend)
+        let token = socket.handshake.auth?.token;
         
-        if (cookies) {
-          // Parse cookies manually (simple cookie parser)
+        // 2. Secondary: check Authorization header (for non-browser clients)
+        if (!token && socket.handshake.headers.authorization) {
+          token = socket.handshake.headers.authorization.split(' ')[1];
+        }
+        
+        // 3. Fallback: check cookies
+        if (!token && socket.handshake.headers.cookie) {
+          const cookies = socket.handshake.headers.cookie;
           const cookieArray = cookies.split(';').map(c => c.trim());
           const accessTokenCookie = cookieArray.find(c => c.startsWith('accessToken='));
           if (accessTokenCookie) {
             token = accessTokenCookie.split('=')[1];
           }
-        }
-        
-        // Fallback: check auth.token or Authorization header (for non-browser clients)
-        if (!token) {
-          token = socket.handshake.auth.token || socket.handshake.headers.authorization?.split(' ')[1];
         }
         
         if (!token) {
