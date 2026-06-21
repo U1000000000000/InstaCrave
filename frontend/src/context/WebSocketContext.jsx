@@ -107,9 +107,9 @@ export const WebSocketProvider = ({ children }) => {
       const newSocket = io(WEBSOCKET_URL, {
         withCredentials: true, // Send cookies automatically
         auth: { token }, // Explicit JWT for WebSocket auth
-        transports: ['websocket', 'polling'], // WebSocket preferred, polling fallback
+        transports: ['polling', 'websocket'], // Polling first for reliable handshake through proxy, then upgrade to WS
         reconnection: false, // We'll handle reconnection manually
-        timeout: 10000,
+        timeout: 20000,
       });
 
       // Connection successful

@@ -50,7 +50,7 @@ const initializeSocketServer = async (httpServer) => {
       pingTimeout: 60000, // 60 seconds
       pingInterval: 25000, // 25 seconds
       connectTimeout: 45000, // 45 seconds
-      transports: ['websocket', 'polling'], // WebSocket preferred, polling fallback
+      transports: ['polling', 'websocket'], // Polling first for reliable proxy handshake
     });
 
     // Setup Redis adapter for horizontal scaling (optional but recommended for production)
